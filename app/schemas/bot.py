@@ -21,9 +21,6 @@ class LeadsSettingSchema(BaseModel):
 class BotCreate(BaseModel):
     name: str = Field(...)
     project_id: PyObjectId = Field(...)
-    user_id: PyObjectId = Field(...)
-    model: str | None = Field(None)
-    settings: BotSettingSchema | None = Field(None)
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 class BotCreateResponse(BaseModel):
@@ -49,6 +46,7 @@ class BotListAll(BaseModel):
     id: PyObjectId = Field(alias="_id", serialization_alias="id")
     name: str
     project_id: PyObjectId = Field(...)
+    sk_key: str | None = Field(None)
     token_usage: int = Field(0)
     character_usage: int = Field(0)
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
@@ -59,6 +57,7 @@ class BotDetailResponse(BaseModel):
     project_id: PyObjectId = Field(...)
     user_id: PyObjectId = Field(...)
     model: str | None = Field(None)
+    sk_key: str | None = Field(None)
     settings: BotSettingSchema | None = Field(None)
     leads_settings: LeadsSettingSchema | None = Field(None)
     token_usage: int = Field(0)

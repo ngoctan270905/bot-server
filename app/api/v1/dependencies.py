@@ -13,9 +13,11 @@ from app.repositories.email_password_repository import EmailPasswordUserReposito
 from app.repositories.project_repository import ProjectRepository
 from app.repositories.member_repository import MemberRepository
 from app.repositories.billing_repository import BillingRepository
+from app.repositories.bot_repository import BotRepository
 from app.services.auth_service import AuthService
 from app.services.profile_service import ProfileService
 from app.services.project_service import ProjectService
+from app.services.bot_service import BotService
 from app.schemas.user import UserDetailResponse
 
 # Định nghĩa scheme xác thực OAuth2
@@ -43,6 +45,10 @@ async def get_billing_repository(db = Depends(get_database)) -> BillingRepositor
     """Dependency cung cấp BillingRepository."""
     return BillingRepository(collection=db["Billing"])
 
+async def get_bot_repository(db = Depends(get_database)) -> BotRepository:
+    """Dependency cung cấp BotRepository."""
+    return BotRepository(collection=db["BotInstance"])
+
 async def get_auth_service(
     user_repo: UserRepository = Depends(get_user_repository),
     email_pw_repo: EmailPasswordUserRepository = Depends(get_email_password_repository)
@@ -68,6 +74,13 @@ async def get_project_service(
         member_repo=member_repo,
         billing_repo=billing_repo
     )
+
+async def get_bot_service(
+    bot_repo: BotRepository = Depends(get_bot_repository),
+    member_repo: MemberRepository = Depends(get_member_repository)
+) -> BotService:
+    """Dependency cung cấp BotService."""
+    return BotService(bot_repo=bot_repo, member_repo=member_repo)
 
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
