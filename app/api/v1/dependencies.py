@@ -10,8 +10,12 @@ from app.core.security import decode_token
 from app.db.mongodb import get_database
 from app.repositories.user_repository import UserRepository
 from app.repositories.email_password_repository import EmailPasswordUserRepository
+from app.repositories.project_repository import ProjectRepository
+from app.repositories.member_repository import MemberRepository
+from app.repositories.billing_repository import BillingRepository
 from app.services.auth_service import AuthService
 from app.services.profile_service import ProfileService
+from app.services.project_service import ProjectService
 from app.schemas.user import UserDetailResponse
 
 # Định nghĩa scheme xác thực OAuth2
@@ -27,6 +31,18 @@ async def get_email_password_repository(db = Depends(get_database)) -> EmailPass
     """Dependency cung cấp EmailPasswordUserRepository."""
     return EmailPasswordUserRepository(collection=db["EmailPasswordUser"])
 
+async def get_project_repository(db = Depends(get_database)) -> ProjectRepository:
+    """Dependency cung cấp ProjectRepository."""
+    return ProjectRepository(collection=db["Project"])
+
+async def get_member_repository(db = Depends(get_database)) -> MemberRepository:
+    """Dependency cung cấp MemberRepository."""
+    return MemberRepository(collection=db["Member"])
+
+async def get_billing_repository(db = Depends(get_database)) -> BillingRepository:
+    """Dependency cung cấp BillingRepository."""
+    return BillingRepository(collection=db["Billing"])
+
 async def get_auth_service(
     user_repo: UserRepository = Depends(get_user_repository),
     email_pw_repo: EmailPasswordUserRepository = Depends(get_email_password_repository)
@@ -40,6 +56,18 @@ async def get_profile_service(
 ) -> ProfileService:
     """Dependency cung cấp ProfileService."""
     return ProfileService(user_repository=user_repo, email_pw_repository=email_pw_repo)
+
+async def get_project_service(
+    project_repo: ProjectRepository = Depends(get_project_repository),
+    member_repo: MemberRepository = Depends(get_member_repository),
+    billing_repo: BillingRepository = Depends(get_billing_repository)
+) -> ProjectService:
+    """Dependency cung cấp ProjectService."""
+    return ProjectService(
+        project_repo=project_repo,
+        member_repo=member_repo,
+        billing_repo=billing_repo
+    )
 
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
