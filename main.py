@@ -32,10 +32,10 @@ async def lifespan(app: FastAPI):
     # Khởi tạo các kết nối Database
     await connect_to_mongo()
     await redis_manager.connect()
-    
+
     logger.info("Khởi động ứng dụng thành công.")
     yield
-    
+
     # Đóng các kết nối khi tắt app
     await redis_manager.disconnect()
     await close_mongo_connection()
@@ -79,8 +79,8 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         {"field": ".".join(map(str, err["loc"])), "message": err["msg"]}
         for err in exc.errors()
     ]
-    
-    # Ghi log lỗi validation (giống dự án gốc)
+
+    # Ghi log lỗi validation
     logger.bind(context="Validation").error(f"Dữ liệu không hợp lệ: {simplified_errors}")
 
     return JSONResponse(
@@ -97,7 +97,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     """Xử lý các lỗi HTTP định nghĩa trước (404, 401, 403,...)."""
     # Ghi log lỗi HTTP
     logger.bind(context="HTTPException").warning(f"Lỗi {exc.status_code}: {exc.detail}")
-    
+
     return JSONResponse(
         status_code=exc.status_code,
         content=UnifiedResponse(
@@ -112,7 +112,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     """Bắt toàn bộ các lỗi không mong muốn (500)."""
     # logger.exception sẽ tự động in ra toàn bộ Stack Trace cực kỳ chi tiết
     logger.bind(context="Critical").exception(f"Lỗi hệ thống nghiêm trọng: {str(exc)}")
-    
+
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content=UnifiedResponse(

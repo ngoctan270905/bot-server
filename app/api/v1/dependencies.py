@@ -8,22 +8,34 @@ from app.core.exceptions import (
 )
 from app.core.security import decode_token
 from app.db.mongodb import get_database
+
+# Repositories
 from app.repositories.user_repository import UserRepository
 from app.repositories.email_password_repository import EmailPasswordUserRepository
 from app.repositories.project_repository import ProjectRepository
 from app.repositories.member_repository import MemberRepository
 from app.repositories.billing_repository import BillingRepository
 from app.repositories.bot_repository import BotRepository
+from app.repositories.customer_repository import CustomerRepository
+from app.repositories.conversation_repository import ConversationRepository
+from app.repositories.chat_history_repository import ChatHistoryRepository
+
+# Services
 from app.services.auth_service import AuthService
 from app.services.profile_service import ProfileService
 from app.services.project_service import ProjectService
 from app.services.bot_service import BotService
+from app.services.chat_service import ChatService
+
+# Schemas
 from app.schemas.user import UserDetailResponse
 
 # Định nghĩa scheme xác thực OAuth2
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/auth/login"
 )
+
+# --- Repository Dependencies ---
 
 async def get_user_repository(db = Depends(get_database)) -> UserRepository:
     """Dependency cung cấp UserRepository."""
@@ -48,6 +60,20 @@ async def get_billing_repository(db = Depends(get_database)) -> BillingRepositor
 async def get_bot_repository(db = Depends(get_database)) -> BotRepository:
     """Dependency cung cấp BotRepository."""
     return BotRepository(collection=db["BotInstance"])
+
+async def get_customer_repository(db = Depends(get_database)) -> CustomerRepository:
+    """Dependency cung cấp CustomerRepository."""
+    return CustomerRepository(collection=db["Customer"])
+
+async def get_conversation_repository(db = Depends(get_database)) -> ConversationRepository:
+    """Dependency cung cấp ConversationRepository."""
+    return ConversationRepository(collection=db["Conversation"])
+
+async def get_chat_history_repository(db = Depends(get_database)) -> ChatHistoryRepository:
+    """Dependency cung cấp ChatHistoryRepository."""
+    return ChatHistoryRepository(collection=db["ChatHistory"])
+
+# --- Service Dependencies ---
 
 async def get_auth_service(
     user_repo: UserRepository = Depends(get_user_repository),
@@ -82,6 +108,22 @@ async def get_bot_service(
     """Dependency cung cấp BotService."""
     return BotService(bot_repo=bot_repo, member_repo=member_repo)
 
+async def get_chat_service(
+    customer_repo: CustomerRepository = Depends(get_customer_repository),
+    conversation_repo: ConversationRepository = Depends(get_conversation_repository),
+    chat_history_repo: ChatHistoryRepository = Depends(get_chat_history_repository),
+    bot_repo: BotRepository = Depends(get_bot_repository)
+) -> ChatService:
+    """Dependency cung cấp ChatService."""
+    return ChatService(
+        customer_repo=customer_repo,
+        conversation_repo=conversation_repo,
+        chat_history_repo=chat_history_repo,
+        bot_repo=bot_repo
+    )
+
+# --- Auth Dependencies ---
+
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
     db = Depends(get_database)
@@ -107,4 +149,3 @@ async def get_current_user(
         raise BadRequestException(detail="Tài khoản đã bị vô hiệu hóa")
 
     return UserDetailResponse.model_validate(user_raw)
-
