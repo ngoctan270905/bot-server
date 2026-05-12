@@ -27,7 +27,7 @@ class BotCreate(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 class BotCreateResponse(BaseModel):
-    id: PyObjectId = Field(alias="_id")
+    id: PyObjectId = Field(alias="_id", serialization_alias="id")
     name: str
     message: str = "Bot created successfully"
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
@@ -40,13 +40,13 @@ class BotUpdate(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 class BotUpdateResponse(BaseModel):
-    id: PyObjectId = Field(alias="_id")
+    id: PyObjectId = Field(alias="_id", serialization_alias="id")
     name: str
     message: str = "Bot updated successfully"
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 class BotListAll(BaseModel):
-    id: PyObjectId = Field(alias="_id")
+    id: PyObjectId = Field(alias="_id", serialization_alias="id")
     name: str
     project_id: PyObjectId = Field(...)
     token_usage: int = Field(0)
@@ -54,7 +54,7 @@ class BotListAll(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 class BotDetailResponse(BaseModel):
-    id: PyObjectId = Field(alias="_id")
+    id: PyObjectId = Field(alias="_id", serialization_alias="id")
     name: str
     project_id: PyObjectId = Field(...)
     user_id: PyObjectId = Field(...)

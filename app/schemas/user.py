@@ -21,7 +21,7 @@ class EmailPasswordUserCreate(BaseModel):
     )
 
 class EmailPasswordUserDetailResponse(BaseModel):
-    id: PyObjectId = Field(alias="_id")
+    id: PyObjectId = Field(alias="_id", serialization_alias="id")
     email: EmailStr = Field(...)
     user_id: PyObjectId | None = Field(None)
 
@@ -41,7 +41,7 @@ class FacebookUserCreate(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 class FacebookUserDetailResponse(BaseModel):
-    id: PyObjectId = Field(alias="_id")
+    id: PyObjectId = Field(alias="_id", serialization_alias="id")
     email: EmailStr = Field(...)
     profile_id: str = Field(...)
     user_id: PyObjectId | None = Field(None)
@@ -62,7 +62,7 @@ class FirebaseUserCreate(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 class FirebaseUserDetailResponse(BaseModel):
-    id: PyObjectId = Field(alias="_id")
+    id: PyObjectId = Field(alias="_id", serialization_alias="id")
     email: EmailStr | None = Field(None)
     profile_id: str = Field(...)
     user_id: PyObjectId | None = Field(None)
@@ -77,8 +77,6 @@ class FirebaseUserDetailResponse(BaseModel):
 class UserCreate(BaseModel):
     email: EmailStr = Field(..., description="Email đăng ký")
     password: str = Field(..., min_length=6, description="Mật khẩu (tối thiểu 6 ký tự)")
-    name: str | None = Field(None, description="Tên người dùng (không bắt buộc)")
-    provider: str = Field("email", description="Mặc định là 'email'")
 
     model_config = ConfigDict(
         alias_generator=to_camel, 
@@ -86,14 +84,13 @@ class UserCreate(BaseModel):
         json_schema_extra={
             "example": {
                 "email": "user@example.com",
-                "password": "password123",
-                "name": "John Doe"
+                "password": "password123"
             }
         }
     )
 
 class UserCreateResponse(BaseModel):
-    id: PyObjectId = Field(alias="_id")
+    id: PyObjectId = Field(alias="_id", serialization_alias="id")
     name: str | None = Field(None)
     provider: str = Field(...)
     active: bool = Field(...)
@@ -101,23 +98,19 @@ class UserCreateResponse(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 class UserUpdate(BaseModel):
-    name: str | None = Field(None)
+    name: str | None = Field(None, min_length=2, max_length=100)
     avatar: str | None = Field(None)
-    active: bool | None = Field(None)
-    last_login: datetime | None = Field(None)
-    token: str | None = Field(None)
-    refresh_token: str | None = Field(None)
 
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 class UserUpdateResponse(BaseModel):
-    id: PyObjectId = Field(alias="_id")
+    id: PyObjectId = Field(alias="_id", serialization_alias="id")
     name: str | None = Field(None)
 
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 class UserListAll(BaseModel):
-    id: PyObjectId = Field(alias="_id")
+    id: PyObjectId = Field(alias="_id", serialization_alias="id")
     name: str | None = Field(None)
     provider: str = Field(...)
     active: bool = Field(...)
@@ -126,7 +119,7 @@ class UserListAll(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 class UserDetailResponse(BaseModel):
-    id: PyObjectId = Field(alias="_id")
+    id: PyObjectId = Field(alias="_id", serialization_alias="id")
     provider: str = Field(...)
     active: bool = Field(...)
     name: str | None = Field(None)

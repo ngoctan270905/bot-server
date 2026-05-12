@@ -13,7 +13,7 @@ class WebhookCreate(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 class WebhookCreateResponse(BaseModel):
-    id: PyObjectId = Field(alias="_id")
+    id: PyObjectId = Field(alias="_id", serialization_alias="id")
     app_id: str
     message: str = "Webhook created successfully"
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
@@ -24,12 +24,12 @@ class WebhookUpdate(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 class WebhookUpdateResponse(BaseModel):
-    id: PyObjectId = Field(alias="_id")
+    id: PyObjectId = Field(alias="_id", serialization_alias="id")
     message: str = "Webhook updated successfully"
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 class WebhookDetailResponse(BaseModel):
-    id: PyObjectId = Field(alias="_id")
+    id: PyObjectId = Field(alias="_id", serialization_alias="id")
     app_id: str
     endpoints: list[str]
     events: list[str]

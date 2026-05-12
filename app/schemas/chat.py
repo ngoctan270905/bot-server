@@ -12,7 +12,7 @@ class AttachmentSchema(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 class CustomerDetailResponse(BaseModel):
-    id: PyObjectId = Field(alias="_id")
+    id: PyObjectId = Field(alias="_id", serialization_alias="id")
     cid: str = Field(...)
     name: str | None = Field(None)
     avatar: str | None = Field(None)
@@ -21,7 +21,7 @@ class CustomerDetailResponse(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 class ConversationListAll(BaseModel):
-    id: PyObjectId = Field(alias="_id")
+    id: PyObjectId = Field(alias="_id", serialization_alias="id")
     customer_id: PyObjectId = Field(...)
     channel: str = Field(...)
     bot_id: PyObjectId = Field(...)
@@ -30,7 +30,7 @@ class ConversationListAll(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 class ConversationDetailResponse(BaseModel):
-    id: PyObjectId = Field(alias="_id")
+    id: PyObjectId = Field(alias="_id", serialization_alias="id")
     customer_id: PyObjectId = Field(...)
     channel: str = Field(...)
     bot_id: PyObjectId = Field(...)
@@ -48,7 +48,7 @@ class ChatHistoryCreate(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 class ChatHistoryDetailResponse(BaseModel):
-    id: PyObjectId = Field(alias="_id")
+    id: PyObjectId = Field(alias="_id", serialization_alias="id")
     role: str
     content: str | None
     thumb: str = "Unspecified"

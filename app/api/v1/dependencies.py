@@ -11,6 +11,7 @@ from app.db.mongodb import get_database
 from app.repositories.user_repository import UserRepository
 from app.repositories.email_password_repository import EmailPasswordUserRepository
 from app.services.auth_service import AuthService
+from app.services.profile_service import ProfileService
 from app.schemas.user import UserDetailResponse
 
 # Định nghĩa scheme xác thực OAuth2
@@ -32,6 +33,13 @@ async def get_auth_service(
 ) -> AuthService:
     """Dependency cung cấp AuthService."""
     return AuthService(user_repository=user_repo, email_pw_repository=email_pw_repo)
+
+async def get_profile_service(
+    user_repo: UserRepository = Depends(get_user_repository),
+    email_pw_repo: EmailPasswordUserRepository = Depends(get_email_password_repository)
+) -> ProfileService:
+    """Dependency cung cấp ProfileService."""
+    return ProfileService(user_repository=user_repo, email_pw_repository=email_pw_repo)
 
 async def get_current_user(
     token: str = Depends(oauth2_scheme),

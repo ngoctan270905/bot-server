@@ -13,7 +13,7 @@ class CheckoutSessionCreate(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 class CheckoutSessionDetailResponse(BaseModel):
-    id: PyObjectId = Field(alias="_id")
+    id: PyObjectId = Field(alias="_id", serialization_alias="id")
     user_id: str = Field(...)
     stripe_session_id: str = Field(...)
     status: str = "PENDING"
