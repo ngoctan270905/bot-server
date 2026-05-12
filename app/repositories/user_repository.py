@@ -1,4 +1,5 @@
 from typing import Optional, Dict, Any
+from datetime import datetime, timezone
 from bson import ObjectId
 from pymongo.asynchronous.collection import AsyncCollection
 from app.repositories.base_repo import BaseRepository
@@ -19,3 +20,19 @@ class UserRepository(BaseRepository):
 
     async def update_user(self, user_id: str, user_data: Dict[str, Any]) -> Optional[dict]:
         return await self.update(user_id, user_data)
+
+    async def get_by_provider_email_pw(self, email: str) -> Optional[dict]:
+        """Tìm User theo provider email và email trong EmailPasswordUser."""
+        return await self.find_one({
+            "provider": "email",
+            "email_pw.email": email
+        })
+
+    async def update_tokens(self, user_id: str, token: str, refresh_token: str) -> bool:
+        """Cập nhật access token và refresh token cho user."""
+        result = await self.update(user_id, {
+            "token": token,
+            "refresh_token": refresh_token,
+            "last_login": datetime.now(timezone.utc)
+        })
+        return result is not None

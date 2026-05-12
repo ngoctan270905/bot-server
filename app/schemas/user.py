@@ -75,19 +75,28 @@ class FirebaseUserDetailResponse(BaseModel):
 # ==========================================
 
 class UserCreate(BaseModel):
-    provider: str = Field(...)
-    name: str | None = Field(None)
-    avatar: str | None = Field(None)
-    active: bool = Field(True)
+    email: EmailStr = Field(..., description="Email đăng ký")
+    password: str = Field(..., min_length=6, description="Mật khẩu (tối thiểu 6 ký tự)")
+    name: str | None = Field(None, description="Tên người dùng (không bắt buộc)")
+    provider: str = Field("email", description="Mặc định là 'email'")
 
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+    model_config = ConfigDict(
+        alias_generator=to_camel, 
+        populate_by_name=True,
+        json_schema_extra={
+            "example": {
+                "email": "user@example.com",
+                "password": "password123",
+                "name": "John Doe"
+            }
+        }
+    )
 
 class UserCreateResponse(BaseModel):
     id: PyObjectId = Field(alias="_id")
     name: str | None = Field(None)
     provider: str = Field(...)
     active: bool = Field(...)
-    message: str = "User created successfully"
 
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
@@ -104,7 +113,6 @@ class UserUpdate(BaseModel):
 class UserUpdateResponse(BaseModel):
     id: PyObjectId = Field(alias="_id")
     name: str | None = Field(None)
-    message: str = "User updated successfully"
 
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
