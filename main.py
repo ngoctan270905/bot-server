@@ -13,6 +13,8 @@ from app.core.logging_config import configure_logging
 from app.core.rate_limit import limiter, rate_limit_exceeded_handler
 from app.db.mongodb import connect_to_mongo, close_mongo_connection
 from app.db.redis import redis_manager
+from app.db.qdrant import init_qdrant
+from app.services.ai_engine import ai_engine
 from app.middlewares.request_id import RequestIDMiddleware
 from app.middlewares.logging import LoggingMiddleware
 from app.api.v1.router import api_router
@@ -32,11 +34,14 @@ async def lifespan(app: FastAPI):
     # Khởi tạo các kết nối Database
     await connect_to_mongo()
     await redis_manager.connect()
+    await init_qdrant()
+    await ai_engine.start()
 
     logger.info("Khởi động ứng dụng thành công.")
     yield
 
     # Đóng các kết nối khi tắt app
+    await ai_engine.stop()
     await redis_manager.disconnect()
     await close_mongo_connection()
     logger.info("Ứng dụng đã được tắt.")

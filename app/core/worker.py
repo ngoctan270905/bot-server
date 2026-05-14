@@ -1,5 +1,6 @@
 from arq.connections import RedisSettings
 from app.core.config import settings
+from app.db.mongodb import connect_to_mongo, close_mongo_connection
 from loguru import logger
 
 async def on_startup(ctx):
@@ -7,12 +8,14 @@ async def on_startup(ctx):
     Hook chạy khi Worker bắt đầu khởi động.
     Tương đương với 'Workers are ready' trong dự án gốc.
     """
+    await connect_to_mongo()
     logger.bind(context="Worker").info("Background Worker đang khởi động...")
 
 async def on_shutdown(ctx):
     """
     Hook chạy khi Worker tắt.
     """
+    await close_mongo_connection()
     logger.bind(context="Worker").info("Background Worker đang dừng...")
 
 from app.tasks.chat_tasks import save_chat_history_task, update_bot_token_usage_task

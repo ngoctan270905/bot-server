@@ -56,3 +56,11 @@ class ChatHistoryDetailResponse(BaseModel):
     conversation_id: PyObjectId = Field(...)
     created_at: datetime = Field(...)
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+class ConversationWithHistory(ConversationDetailResponse):
+    chat_histories: list[ChatHistoryDetailResponse] = Field(default_factory=list)
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+class ConversationUpdate(BaseModel):
+    auto_reply: bool | None = None
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
