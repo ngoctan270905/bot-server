@@ -8,6 +8,16 @@ class RedisSettings(BaseSettings):
     password: Optional[str] = Field(None, alias="REDIS_PASSWORD")
     db: int = Field(0, alias="REDIS_DB")
 
+    @property
+    def redis_arq(self):
+        from arq.connections import RedisSettings as ArqRedisSettings
+        return ArqRedisSettings(
+            host=self.host,
+            port=self.port,
+            password=self.password,
+            database=self.db
+        )
+
 class AISettings(BaseSettings):
     gemini_key: Optional[str] = Field(None, alias="GGG_AI_API_KEY")
     openai_key: Optional[str] = Field(None, alias="OPENAI_API_KEY")

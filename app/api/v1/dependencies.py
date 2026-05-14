@@ -19,6 +19,8 @@ from app.repositories.bot_repository import BotRepository
 from app.repositories.customer_repository import CustomerRepository
 from app.repositories.conversation_repository import ConversationRepository
 from app.repositories.chat_history_repository import ChatHistoryRepository
+from app.repositories.leads_repository import LeadsRepository
+from app.repositories.chat_analytics_repository import ChatAnalyticsRepository
 
 # Services
 from app.services.auth_service import AuthService
@@ -26,6 +28,8 @@ from app.services.profile_service import ProfileService
 from app.services.project_service import ProjectService
 from app.services.bot_service import BotService
 from app.services.chat_service import ChatService
+from app.services.bot_analytics_service import BotAnalyticsService
+from app.services.lead_service import LeadService
 
 # Schemas
 from app.schemas.user import UserDetailResponse
@@ -72,6 +76,14 @@ async def get_conversation_repository(db = Depends(get_database)) -> Conversatio
 async def get_chat_history_repository(db = Depends(get_database)) -> ChatHistoryRepository:
     """Dependency cung cấp ChatHistoryRepository."""
     return ChatHistoryRepository(collection=db["ChatHistory"])
+
+async def get_leads_repository(db = Depends(get_database)) -> LeadsRepository:
+    """Dependency cung cấp LeadsRepository."""
+    return LeadsRepository(collection=db["Leads"])
+
+async def get_chat_analytics_repository(db = Depends(get_database)) -> ChatAnalyticsRepository:
+    """Dependency cung cấp ChatAnalyticsRepository."""
+    return ChatAnalyticsRepository(collection=db["ChatAnalytics"])
 
 # --- Service Dependencies ---
 
@@ -124,6 +136,34 @@ async def get_chat_service(
         conversation_repo=conversation_repo,
         chat_history_repo=chat_history_repo,
         bot_repo=bot_repo
+    )
+
+async def get_bot_analytics_service(
+    analytics_repo: ChatAnalyticsRepository = Depends(get_chat_analytics_repository),
+    bot_repo: BotRepository = Depends(get_bot_repository),
+    member_repo: MemberRepository = Depends(get_member_repository),
+    chat_history_repo: ChatHistoryRepository = Depends(get_chat_history_repository),
+    conversation_repo: ConversationRepository = Depends(get_conversation_repository)
+) -> BotAnalyticsService:
+    """Dependency cung cấp BotAnalyticsService."""
+    return BotAnalyticsService(
+        analytics_repo=analytics_repo,
+        bot_repo=bot_repo,
+        member_repo=member_repo,
+        chat_history_repo=chat_history_repo,
+        conversation_repo=conversation_repo
+    )
+
+async def get_lead_service(
+    leads_repo: LeadsRepository = Depends(get_leads_repository),
+    bot_repo: BotRepository = Depends(get_bot_repository),
+    member_repo: MemberRepository = Depends(get_member_repository)
+) -> LeadService:
+    """Dependency cung cấp LeadService."""
+    return LeadService(
+        leads_repo=leads_repo,
+        bot_repo=bot_repo,
+        member_repo=member_repo
     )
 
 # --- Auth Dependencies ---

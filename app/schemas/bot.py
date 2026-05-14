@@ -63,3 +63,54 @@ class BotDetailResponse(BaseModel):
     token_usage: int = Field(0)
     character_usage: int = Field(0)
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+# --- Analytics Schemas ---
+
+class ChatByChannelCount(BaseModel):
+    channel: str
+    total_chat: int
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+class ChatAnalyticsDetail(BaseModel):
+    date: datetime
+    total_chat: int
+    total_message: int
+    thumbs_up_message: int
+    thumbs_down_message: int
+    chats_by_channel: list[ChatByChannelCount] = Field(default_factory=list)
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+class BotAnalyticsTotal(BaseModel):
+    total_chat: int
+    total_message: int
+    thumbs_up_message: int
+    thumbs_down_message: int
+    chats_by_channel: list[ChatByChannelCount] = Field(default_factory=list)
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+class BotAnalyticsResponse(BaseModel):
+    bot_id: str
+    total: BotAnalyticsTotal
+    data: list[ChatAnalyticsDetail]
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+# --- Leads Schemas ---
+
+class LeadCreate(BaseModel):
+    conversation_id: str
+    name: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    message: str | None = None
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+class LeadDetailResponse(BaseModel):
+    id: PyObjectId = Field(alias="_id", serialization_alias="id")
+    bot_id: str
+    conversation_id: str | None = None
+    name: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    message: str | None = None
+    created_at: datetime
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)

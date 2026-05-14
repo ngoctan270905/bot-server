@@ -1,9 +1,25 @@
 from fastapi import APIRouter, Depends, status, Query
 from typing import List, Any
+from datetime import datetime
 
 from app.services.bot_service import BotService
-from app.api.v1.dependencies import get_bot_service, get_current_user
-from app.schemas.bot import BotCreate, BotUpdate, BotDetailResponse, BotListAll
+from app.services.bot_analytics_service import BotAnalyticsService
+from app.services.lead_service import LeadService
+from app.api.v1.dependencies import (
+    get_bot_service, 
+    get_bot_analytics_service, 
+    get_lead_service, 
+    get_current_user
+)
+from app.schemas.bot import (
+    BotCreate, 
+    BotUpdate, 
+    BotDetailResponse, 
+    BotListAll, 
+    BotAnalyticsResponse, 
+    LeadDetailResponse, 
+    LeadCreate
+)
 from app.schemas.user import UserDetailResponse
 from app.schemas.base import UnifiedResponse
 
@@ -64,3 +80,47 @@ async def delete_bot(
     Xóa một Bot.
     """
     return await bot_service.delete_bot(str(current_user.id), id)
+
+# --- Analytics & Leads Endpoints ---
+
+@router.get("/{id}/chat-analytics", response_model=BotAnalyticsResponse)
+async def get_bot_analytics(
+    id: str,
+    from_date: datetime = Query(..., alias="fromDate"),
+    to_date: datetime = Query(..., alias="toDate"),
+    current_user: UserDetailResponse = Depends(get_current_user),
+    analytics_service: BotAnalyticsService = Depends(get_bot_analytics_service)
+) -> Any:
+    """
+    Lấy thống kê chat của Bot (Aggregate theo ngày).
+    """
+    return await analytics_service.get_bot_analytics(
+        str(current_user.id), id, from_date, to_date
+    )
+
+@router.get("/{id}/leads", response_model=List[LeadDetailResponse])
+async def get_bot_leads(
+    id: str,
+    from_date: datetime | None = Query(None, alias="fromDate"),
+    to_date: datetime | None = Query(None, alias="toDate"),
+    current_user: UserDetailResponse = Depends(get_current_user),
+    lead_service: LeadService = Depends(get_lead_service)
+) -> Any:
+    """
+    Lấy danh sách khách hàng (Leads) đã thu thập được của Bot.
+    """
+    return await lead_service.get_bot_leads(
+        str(current_user.id), id, from_date, to_date
+    )
+
+@router.post("/{id}/leads", response_model=LeadDetailResponse, status_code=status.HTTP_201_CREATED)
+async def create_bot_lead(
+    id: str,
+    lead_in: LeadCreate,
+    lead_service: LeadService = Depends(get_lead_service)
+) -> Any:
+    """
+    Tạo một Lead mới (thường dùng cho API công khai/Widget chat).
+    Không yêu cầu đăng nhập nếu là API công khai.
+    """
+    return await lead_service.create_lead(id, lead_in)
