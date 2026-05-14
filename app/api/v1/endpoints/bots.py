@@ -18,12 +18,35 @@ from app.schemas.bot import (
     BotListAll, 
     BotAnalyticsResponse, 
     LeadDetailResponse, 
-    LeadCreate
+    LeadCreate,
+    BotPublicResponse,
+    SkKeyResponse
 )
 from app.schemas.user import UserDetailResponse
 from app.schemas.base import UnifiedResponse
 
 router = APIRouter()
+
+@router.get("/public/{id}", response_model=BotPublicResponse)
+async def get_public_bot(
+    id: str,
+    bot_service: BotService = Depends(get_bot_service)
+) -> Any:
+    """
+    Lấy thông tin Bot công khai (dùng cho Widget chat, không cần login).
+    """
+    return await bot_service.get_bot_public(id)
+
+@router.post("/{id}/reset-key", response_model=SkKeyResponse)
+async def reset_bot_key(
+    id: str,
+    current_user: UserDetailResponse = Depends(get_current_user),
+    bot_service: BotService = Depends(get_bot_service)
+) -> Any:
+    """
+    Cấp lại Secret Key mới cho Bot.
+    """
+    return await bot_service.reset_sk_key(str(current_user.id), id)
 
 @router.get("/", response_model=List[BotListAll])
 async def list_bots(

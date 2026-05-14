@@ -64,6 +64,17 @@ class BotDetailResponse(BaseModel):
     character_usage: int = Field(0)
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
+class BotPublicResponse(BaseModel):
+    id: PyObjectId = Field(alias="_id", serialization_alias="id")
+    name: str
+    settings: BotSettingSchema | None = Field(None)
+    leads_settings: LeadsSettingSchema | None = Field(None)
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+class SkKeyResponse(BaseModel):
+    sk_key: str = Field(alias="skKey")
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
 # --- Analytics Schemas ---
 
 class ChatByChannelCount(BaseModel):

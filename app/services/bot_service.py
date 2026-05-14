@@ -5,7 +5,14 @@ from typing import List
 
 from app.repositories.bot_repository import BotRepository
 from app.repositories.member_repository import MemberRepository
-from app.schemas.bot import BotCreate, BotUpdate, BotDetailResponse, BotListAll
+from app.schemas.bot import (
+    BotCreate, 
+    BotUpdate, 
+    BotDetailResponse, 
+    BotListAll, 
+    BotPublicResponse, 
+    SkKeyResponse
+)
 from app.schemas.base import UnifiedResponse
 from app.core.exceptions import NotFoundException, ForbiddenException
 
@@ -25,7 +32,6 @@ class BotService:
 
     async def get_bots(self, user_id: str, project_id: str) -> List[BotListAll]:
         """Lấy danh sách bot trong project."""
-        # Kiểm tra quyền thành viên
         is_member = await self._member_repo.is_member(user_id, project_id)
         if not is_member:
             raise ForbiddenException(detail="You are not a member of this project")
@@ -34,8 +40,7 @@ class BotService:
         return [BotListAll.model_validate(b) for b in bots]
 
     async def create_bot(self, user_id: str, bot_in: BotCreate) -> BotDetailResponse:
-        """Tạo bot mới trong project."""
-        # Kiểm tra quyền thành viên của project
+        """Tạo bot mới."""
         is_member = await self._member_repo.is_member(user_id, bot_in.project_id)
         if not is_member:
             raise ForbiddenException(detail="You are not a member of this project")
@@ -49,7 +54,6 @@ class BotService:
             "created_at": datetime.now(timezone.utc)
         }
         new_bot = await self._bot_repo.create(bot_data)
-        
         return BotDetailResponse.model_validate(new_bot)
 
     async def get_bot_by_id(self, user_id: str, bot_id: str) -> BotDetailResponse:
@@ -58,12 +62,22 @@ class BotService:
         if not bot:
             raise NotFoundException(detail="Bot not found")
 
-        # Kiểm tra quyền thành viên của project chứa bot
         is_member = await self._member_repo.is_member(user_id, bot["projectId"])
         if not is_member:
             raise ForbiddenException(detail="You are not a member of this project")
 
         return BotDetailResponse.model_validate(bot)
+
+    async def get_bot_public(self, bot_id: str) -> BotPublicResponse:
+        """Lấy thông tin bot công khai (không cần login)."""
+        bot = await self._bot_repo.get_by_id(bot_id)
+        if not bot:
+            raise NotFoundException(detail="Bot not found")
+
+        if not bot.get("skKey"):
+            raise ForbiddenException(detail="Bot is not public")
+
+        return BotPublicResponse.model_validate(bot)
 
     async def update_bot(self, user_id: str, bot_id: str, bot_in: BotUpdate) -> BotDetailResponse:
         """Cập nhật cấu hình bot."""
@@ -71,14 +85,12 @@ class BotService:
         if not bot:
             raise NotFoundException(detail="Bot not found")
 
-        # Kiểm tra quyền thành viên
         is_member = await self._member_repo.is_member(user_id, bot["projectId"])
         if not is_member:
             raise ForbiddenException(detail="You are not a member of this project")
 
         update_data = bot_in.model_dump(exclude_unset=True)
 
-        # Logic xử lý Leads Settings (giống dự án gốc)
         if "leads_settings" in update_data:
             ls = update_data["leads_settings"]
             if ls and any([ls.get("email"), ls.get("phone"), ls.get("name"), ls.get("message")]):
@@ -87,8 +99,6 @@ class BotService:
             else:
                 update_data["leads_settings"] = None
 
-        # Logic xử lý Public/Private & SK Key
-        # Lưu ý: Trong BotUpdate schema chưa có is_public, nếu bạn thêm vào thì code này sẽ chạy
         if "is_public" in update_data:
             is_public = update_data.pop("is_public")
             if is_public is True:
@@ -96,7 +106,6 @@ class BotService:
             elif is_public is False:
                 update_data["skKey"] = None
 
-        # Tách settings (temperature, instructions)
         settings_update = {}
         if "temperature" in update_data:
             settings_update["temperature"] = update_data.pop("temperature")
@@ -104,7 +113,6 @@ class BotService:
             settings_update["instructions"] = update_data.pop("instructions")
         
         if settings_update:
-            # Lấy settings hiện tại để merge
             current_settings = bot.get("settings", {})
             if not isinstance(current_settings, dict):
                 current_settings = {}
@@ -112,10 +120,21 @@ class BotService:
             update_data["settings"] = current_settings
 
         updated_bot = await self._bot_repo.update(bot_id, update_data)
-        if not updated_bot:
-            raise NotFoundException(detail="Bot not found after update")
-
         return BotDetailResponse.model_validate(updated_bot)
+
+    async def reset_sk_key(self, user_id: str, bot_id: str) -> SkKeyResponse:
+        """Cấp lại Secret Key mới."""
+        bot = await self._bot_repo.get_by_id(bot_id)
+        if not bot:
+            raise NotFoundException(detail="Bot not found")
+
+        is_member = await self._member_repo.is_member(user_id, bot["projectId"])
+        if not is_member:
+            raise ForbiddenException(detail="You do not have permission to modify this bot")
+
+        new_key = generate_sk_key()
+        await self._bot_repo.update(bot_id, {"skKey": new_key})
+        return SkKeyResponse(sk_key=new_key)
 
     async def delete_bot(self, user_id: str, bot_id: str) -> None:
         """Xóa bot."""
@@ -123,10 +142,8 @@ class BotService:
         if not bot:
             raise NotFoundException(detail="Bot not found")
 
-        # Kiểm tra quyền thành viên
         is_member = await self._member_repo.is_member(user_id, bot["projectId"])
         if not is_member:
             raise ForbiddenException(detail="You are not a member of this project")
 
         await self._bot_repo.delete(bot_id)
-        return None
