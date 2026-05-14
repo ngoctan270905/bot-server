@@ -62,3 +62,18 @@ class ProfileService:
             updated_user["emailPw"] = email_pw
 
         return UserDetailResponse.model_validate(updated_user)
+
+    async def delete_profile(self, user_id: str) -> None:
+        """
+        Xóa hồ sơ người dùng.
+        """
+        # 1. Xóa các thông tin xác thực liên quan
+        await self._email_pw_repo.collection.delete_many({"userId": user_id})
+        
+        # 2. Xóa User chính
+        success = await self._user_repo.delete(user_id)
+        if not success:
+            raise NotFoundException(detail="Profile not found.")
+        
+        # TODO: Cần thêm logic xóa Projects, Bots, v.v. để dọn dẹp sạch sẽ
+        return None
