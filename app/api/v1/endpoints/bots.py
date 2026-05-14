@@ -9,7 +9,7 @@ from app.schemas.base import UnifiedResponse
 
 router = APIRouter()
 
-@router.get("/", response_model=UnifiedResponse[List[BotListAll]])
+@router.get("/", response_model=List[BotListAll])
 async def list_bots(
     project_id: str = Query(..., alias="projectId"),
     current_user: UserDetailResponse = Depends(get_current_user),
@@ -20,7 +20,7 @@ async def list_bots(
     """
     return await bot_service.get_bots(str(current_user.id), project_id)
 
-@router.post("/", response_model=UnifiedResponse[BotDetailResponse], status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=BotDetailResponse, status_code=status.HTTP_201_CREATED)
 async def create_bot(
     bot_in: BotCreate,
     current_user: UserDetailResponse = Depends(get_current_user),
@@ -31,7 +31,7 @@ async def create_bot(
     """
     return await bot_service.create_bot(str(current_user.id), bot_in)
 
-@router.get("/{id}", response_model=UnifiedResponse[BotDetailResponse])
+@router.get("/{id}", response_model=BotDetailResponse)
 async def get_bot(
     id: str,
     current_user: UserDetailResponse = Depends(get_current_user),
@@ -42,7 +42,7 @@ async def get_bot(
     """
     return await bot_service.get_bot_by_id(str(current_user.id), id)
 
-@router.put("/{id}", response_model=UnifiedResponse[BotDetailResponse])
+@router.put("/{id}", response_model=BotDetailResponse)
 async def update_bot(
     id: str,
     bot_in: BotUpdate,
@@ -54,7 +54,7 @@ async def update_bot(
     """
     return await bot_service.update_bot(str(current_user.id), id, bot_in)
 
-@router.delete("/{id}", response_model=UnifiedResponse[None])
+@router.delete("/{id}", response_model=None)
 async def delete_bot(
     id: str,
     current_user: UserDetailResponse = Depends(get_current_user),

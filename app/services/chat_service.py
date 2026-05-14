@@ -7,6 +7,9 @@ from app.repositories.conversation_repository import ConversationRepository
 from app.repositories.chat_history_repository import ChatHistoryRepository
 from app.repositories.bot_repository import BotRepository
 from app.core.exceptions import NotFoundException
+from app.services.ai_engine import ai_engine
+from app.db.redis import redis_manager
+from app.core.config import settings
 
 class ChatService:
     def __init__(
@@ -49,20 +52,56 @@ class ChatService:
         return str(conversation["_id"])
 
     async def save_message(self, conversation_id: str, bot_id: str, content: str, role: str):
-        """Lưu tin nhắn vào lịch sử chat."""
-        chat_data = {
-            "role": role,
-            "botId": bot_id,
-            "content": content,
-            "conversationId": conversation_id,
-            "createdAt": datetime.now(timezone.utc)
-        }
-        await self._chat_history_repo.create(chat_data)
+        """Đẩy task lưu tin nhắn vào hàng đợi arq."""
+        try:
+            # Kiểm tra client thay vì pool (theo định nghĩa trong db/redis.py)
+            if redis_manager.client:
+                from arq import create_pool
+                from arq.connections import RedisSettings
+                
+                # TODO: Nên cache arq_pool này ở class level hoặc dependency thay vì tạo mới mỗi lần
+                arq_pool = await create_pool(RedisSettings(
+                    host=settings.redis.host,
+                    port=settings.redis.port,
+                    password=settings.redis.password,
+                    database=settings.redis.db
+                ))
+                await arq_pool.enqueue_job('save_chat_history_task', conversation_id, bot_id, content, role)
+                await arq_pool.close()
+        except Exception as e:
+            import loguru
+            loguru.logger.error(f"Failed to enqueue save_message task: {e}")
 
     async def get_ai_response(self, bot_id: str, message: str, conversation_id: str) -> str:
         """
-        Gọi logic AI để lấy câu trả lời. 
-        Tạm thời trả về Echo để test luồng WS.
+        Gọi logic AI thực tế (RAG) thông qua AIEngine và cập nhật token usage ngầm.
         """
-        # TODO: Tích hợp RAG logic (Embed -> Search -> Rerank -> LLM) ở đây
-        return f"AI Response: {message}"
+        bot = await self._bot_repo.get_by_id(bot_id)
+        bot_instructions = ""
+        if bot and "settings" in bot:
+            bot_instructions = bot["settings"].get("instructions", "")
+            
+        # 1. Gọi AI Engine lấy phản hồi
+        ai_text = await ai_engine.ask(question=message, bot_instructions=bot_instructions)
+        
+        # 2. Ước tính token (4 ký tự ~ 1 token)
+        token_count = len(ai_text) // 4
+        
+        # 3. Enqueue job cập nhật token usage
+        try:
+            if redis_manager.client:
+                from arq import create_pool
+                from arq.connections import RedisSettings
+                arq_pool = await create_pool(RedisSettings(
+                    host=settings.redis.host,
+                    port=settings.redis.port,
+                    password=settings.redis.password,
+                    database=settings.redis.db
+                ))
+                await arq_pool.enqueue_job('update_bot_token_usage_task', bot_id, token_count)
+                await arq_pool.close()
+        except Exception as e:
+            import loguru
+            loguru.logger.error(f"Failed to enqueue update_token task: {e}")
+            
+        return ai_text

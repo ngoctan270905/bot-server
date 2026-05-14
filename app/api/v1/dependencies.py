@@ -92,13 +92,17 @@ async def get_profile_service(
 async def get_project_service(
     project_repo: ProjectRepository = Depends(get_project_repository),
     member_repo: MemberRepository = Depends(get_member_repository),
-    billing_repo: BillingRepository = Depends(get_billing_repository)
+    billing_repo: BillingRepository = Depends(get_billing_repository),
+    bot_repo: BotRepository = Depends(get_bot_repository),
+    chat_history_repo: ChatHistoryRepository = Depends(get_chat_history_repository)
 ) -> ProjectService:
     """Dependency cung cấp ProjectService."""
     return ProjectService(
         project_repo=project_repo,
         member_repo=member_repo,
-        billing_repo=billing_repo
+        billing_repo=billing_repo,
+        bot_repo=bot_repo,
+        chat_history_repo=chat_history_repo
     )
 
 async def get_bot_service(

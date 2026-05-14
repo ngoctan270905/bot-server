@@ -28,11 +28,11 @@ async def login(
     Đăng nhập bằng OAuth2 compatible token login (Email/Password).
     """
     return await auth_service.login_email_password(
-        email=form_data.username, 
+        email=form_data.username,
         password=form_data.password
     )
 
-@router.get("/logout", response_model=UnifiedResponse[None])
+@router.get("/logout", response_model=None)
 async def logout(
     current_user: UserDetailResponse = Depends(get_current_user),
     auth_service: AuthService = Depends(get_auth_service)
@@ -42,7 +42,7 @@ async def logout(
     """
     return await auth_service.logout(str(current_user.id))
 
-@router.post("/refresh-token", response_model=UnifiedResponse[dict])
+@router.post("/refresh-token", response_model=dict)
 async def refresh_token(
     refreshToken: str = Body(..., embed=True),
     auth_service: AuthService = Depends(get_auth_service)
@@ -52,7 +52,7 @@ async def refresh_token(
     """
     return await auth_service.refresh_token(refreshToken)
 
-@router.post("/reset-password", response_model=UnifiedResponse[None])
+@router.post("/reset-password", response_model=None)
 async def reset_password(
     current_password: str = Body(..., alias="currentPassword"),
     new_password: str = Body(..., alias="newPassword"),
@@ -68,7 +68,7 @@ async def reset_password(
         new_password=new_password
     )
 
-@router.post("/forget-password", response_model=UnifiedResponse[None])
+@router.post("/forget-password", response_model=None)
 async def forgot_password(
     email: str = Body(..., embed=True),
     auth_service: AuthService = Depends(get_auth_service)

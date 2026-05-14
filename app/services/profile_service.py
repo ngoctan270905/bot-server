@@ -16,7 +16,7 @@ class ProfileService:
         self._user_repo = user_repository
         self._email_pw_repo = email_pw_repository
 
-    async def get_my_profile(self, user_id: str) -> UnifiedResponse[UserDetailResponse]:
+    async def get_my_profile(self, user_id: str) -> UserDetailResponse:
         """
         Lấy thông tin cá nhân (me).
         """
@@ -29,14 +29,9 @@ class ProfileService:
         if email_pw:
             user["emailPw"] = email_pw
             
-        data = UserDetailResponse.model_validate(user)
-        return UnifiedResponse[UserDetailResponse](
-            success=True,
-            message="Profile fetched successfully",
-            data=data
-        )
+        return UserDetailResponse.model_validate(user)
 
-    async def get_profile_by_id(self, id: str) -> UnifiedResponse[UserDetailResponse]:
+    async def get_profile_by_id(self, id: str) -> UserDetailResponse:
         """
         Lấy thông tin cá nhân theo ID.
         """
@@ -49,14 +44,9 @@ class ProfileService:
         if email_pw:
             user["emailPw"] = email_pw
 
-        data = UserDetailResponse.model_validate(user)
-        return UnifiedResponse[UserDetailResponse](
-            success=True,
-            message="Profile fetched successfully",
-            data=data
-        )
+        return UserDetailResponse.model_validate(user)
 
-    async def update_profile(self, user_id: str, profile_in: UserUpdate) -> UnifiedResponse[UserDetailResponse]:
+    async def update_profile(self, user_id: str, profile_in: UserUpdate) -> UserDetailResponse:
         """
         Cập nhật thông tin cá nhân.
         """
@@ -71,9 +61,4 @@ class ProfileService:
         if email_pw:
             updated_user["emailPw"] = email_pw
 
-        data = UserDetailResponse.model_validate(updated_user)
-        return UnifiedResponse[UserDetailResponse](
-            success=True,
-            message="Profile updated successfully",
-            data=data
-        )
+        return UserDetailResponse.model_validate(updated_user)

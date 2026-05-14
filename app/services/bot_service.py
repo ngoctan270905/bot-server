@@ -23,7 +23,7 @@ class BotService:
         self._bot_repo = bot_repo
         self._member_repo = member_repo
 
-    async def get_bots(self, user_id: str, project_id: str) -> UnifiedResponse[List[BotListAll]]:
+    async def get_bots(self, user_id: str, project_id: str) -> List[BotListAll]:
         """Lấy danh sách bot trong project."""
         # Kiểm tra quyền thành viên
         is_member = await self._member_repo.is_member(user_id, project_id)
@@ -31,14 +31,9 @@ class BotService:
             raise ForbiddenException(detail="You are not a member of this project")
 
         bots = await self._bot_repo.get_by_project(project_id)
-        data = [BotListAll.model_validate(b) for b in bots]
-        return UnifiedResponse[List[BotListAll]](
-            success=True,
-            message="Bots fetched successfully",
-            data=data
-        )
+        return [BotListAll.model_validate(b) for b in bots]
 
-    async def create_bot(self, user_id: str, bot_in: BotCreate) -> UnifiedResponse[BotDetailResponse]:
+    async def create_bot(self, user_id: str, bot_in: BotCreate) -> BotDetailResponse:
         """Tạo bot mới trong project."""
         # Kiểm tra quyền thành viên của project
         is_member = await self._member_repo.is_member(user_id, bot_in.project_id)
@@ -55,14 +50,9 @@ class BotService:
         }
         new_bot = await self._bot_repo.create(bot_data)
         
-        data = BotDetailResponse.model_validate(new_bot)
-        return UnifiedResponse[BotDetailResponse](
-            success=True,
-            message="Bot created successfully",
-            data=data
-        )
+        return BotDetailResponse.model_validate(new_bot)
 
-    async def get_bot_by_id(self, user_id: str, bot_id: str) -> UnifiedResponse[BotDetailResponse]:
+    async def get_bot_by_id(self, user_id: str, bot_id: str) -> BotDetailResponse:
         """Lấy chi tiết bot."""
         bot = await self._bot_repo.get_by_id(bot_id)
         if not bot:
@@ -73,13 +63,9 @@ class BotService:
         if not is_member:
             raise ForbiddenException(detail="You are not a member of this project")
 
-        data = BotDetailResponse.model_validate(bot)
-        return UnifiedResponse[BotDetailResponse](
-            success=True,
-            data=data
-        )
+        return BotDetailResponse.model_validate(bot)
 
-    async def update_bot(self, user_id: str, bot_id: str, bot_in: BotUpdate) -> UnifiedResponse[BotDetailResponse]:
+    async def update_bot(self, user_id: str, bot_id: str, bot_in: BotUpdate) -> BotDetailResponse:
         """Cập nhật cấu hình bot."""
         bot = await self._bot_repo.get_by_id(bot_id)
         if not bot:
@@ -129,14 +115,9 @@ class BotService:
         if not updated_bot:
             raise NotFoundException(detail="Bot not found after update")
 
-        data = BotDetailResponse.model_validate(updated_bot)
-        return UnifiedResponse[BotDetailResponse](
-            success=True,
-            message="Bot updated successfully",
-            data=data
-        )
+        return BotDetailResponse.model_validate(updated_bot)
 
-    async def delete_bot(self, user_id: str, bot_id: str) -> UnifiedResponse[None]:
+    async def delete_bot(self, user_id: str, bot_id: str) -> None:
         """Xóa bot."""
         bot = await self._bot_repo.get_by_id(bot_id)
         if not bot:
@@ -148,8 +129,4 @@ class BotService:
             raise ForbiddenException(detail="You are not a member of this project")
 
         await self._bot_repo.delete(bot_id)
-        return UnifiedResponse[None](
-            success=True,
-            message="Bot deleted successfully",
-            data=None
-        )
+        return None

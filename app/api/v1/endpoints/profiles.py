@@ -8,7 +8,7 @@ from app.schemas.base import UnifiedResponse
 
 router = APIRouter()
 
-@router.get("/me", response_model=UnifiedResponse[UserDetailResponse])
+@router.get("/me", response_model=UserDetailResponse)
 async def get_my_profile(
     current_user: UserDetailResponse = Depends(get_current_user),
     profile_service: ProfileService = Depends(get_profile_service)
@@ -18,7 +18,7 @@ async def get_my_profile(
     """
     return await profile_service.get_my_profile(str(current_user.id))
 
-@router.get("/{id}", response_model=UnifiedResponse[UserDetailResponse])
+@router.get("/{id}", response_model=UserDetailResponse)
 async def get_profile_by_id(
     id: str,
     current_user: UserDetailResponse = Depends(get_current_user),
@@ -29,7 +29,7 @@ async def get_profile_by_id(
     """
     return await profile_service.get_profile_by_id(id)
 
-@router.put("/", response_model=UnifiedResponse[UserDetailResponse])
+@router.put("/", response_model=UserDetailResponse)
 async def update_profile(
     profile_in: UserUpdate,
     current_user: UserDetailResponse = Depends(get_current_user),

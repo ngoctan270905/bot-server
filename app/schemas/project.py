@@ -55,3 +55,39 @@ class MemberDetailResponse(BaseModel):
     project_id: PyObjectId = Field(...)
     is_creator: bool | None = Field(None)
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+class SubscriptionService(BaseModel):
+    tokens_per_bot_per_month: int
+    characters_per_bot: int
+    team_members: int
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+class SubscriptionPrice(BaseModel):
+    currency: str
+    price: int
+    reccuring_interval: str
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+class ProjectSubscriptionResponse(BaseModel):
+    id: str
+    name: str
+    description: str
+    is_free: bool = False
+    prices: list[SubscriptionPrice]
+    services: SubscriptionService
+    features: list[str]
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+class MessagePerDay(BaseModel):
+    date: str
+    count: int
+
+class MessagePerBot(BaseModel):
+    bot_id: str
+    count: int
+
+class ProjectUsageResponse(BaseModel):
+    total_messages: int
+    message_per_days: list[MessagePerDay]
+    message_per_bots: list[MessagePerBot]
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)

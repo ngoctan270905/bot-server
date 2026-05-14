@@ -14,7 +14,19 @@ class AISettings(BaseSettings):
     jina_key: Optional[str] = Field(None, alias="JINA_API_KEY")
     cohere_key: Optional[str] = Field(None, alias="COHERE_API_KEY")
 
-    # Existing Bot-Server specific AI settings
+    # Bot-Server specific AI settings (Synced with ChatBot-Model)
+    embedding_url: str = Field("http://localhost:8081/v1/embeddings", alias="EMBEDDING_URL")
+    embedding_model: str = Field("bge-m3", alias="EMBEDDING_MODEL")
+
+    reranker_url: str = Field("http://localhost:8082/v1/rerank", alias="RERANKER_URL")
+    reranker_model: str = Field("bge-reranker-v2-m3", alias="RERANKER_MODEL")
+
+    llm_url: str = Field("http://localhost:8080/v1/chat/completions", alias="LLM_URL")
+    llm_model: str = Field("gemma-3-1b-it", alias="LLM_MODEL")
+
+    qdrant_url: str = Field("http://localhost:6333", alias="QDRANT_URL")
+    qdrant_collection: str = Field("bot_collection", alias="QDRANT_COLLECTION")
+
     gemini_model: str = Field("gemini-1.5-flash", alias="GEMINI_MODEL")
     gemini_timeout: float = Field(30.0, alias="GEMINI_TIMEOUT")
     gemini_max_history: int = Field(20, alias="GEMINI_MAX_HISTORY")
@@ -46,10 +58,10 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = Field("Bot Server", alias="PROJECT_NAME")
     API_V1_STR: str = Field("/api/v1", alias="API_V1_STR")
     ENVIRONMENT: str = Field("development", alias="ENVIRONMENT")
-    
+
     # CORS Origins - Có thể cấu hình qua .env: BACKEND_CORS_ORIGINS="http://localhost:3000,https://myapp.com"
     BACKEND_CORS_ORIGINS: list[str] = Field(
-        ["http://localhost:5173", "http://localhost:3000"], 
+        ["http://localhost:5173", "http://localhost:3000"],
         alias="BACKEND_CORS_ORIGINS"
     )
 

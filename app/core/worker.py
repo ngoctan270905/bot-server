@@ -15,15 +15,18 @@ async def on_shutdown(ctx):
     """
     logger.bind(context="Worker").info("Background Worker đang dừng...")
 
+from app.tasks.chat_tasks import save_chat_history_task, update_bot_token_usage_task
+
+# ... (on_startup, on_shutdown giữ nguyên) ...
+
 class WorkerSettings:
     """
     Cấu hình nền cho Arq Worker (Thay thế BullMQ).
     File này sẽ được dùng bởi lệnh: `arq app.core.worker.WorkerSettings`
     """
-    
-    # Danh sách các hàm xử lý task (sẽ được bổ sung sau)
-    functions = []
-    
+
+    # Danh sách các hàm xử lý task
+    functions = [save_chat_history_task, update_bot_token_usage_task]
     # Cấu hình kết nối Redis lấy từ settings
     redis_settings = RedisSettings(
         host=settings.redis.host,
