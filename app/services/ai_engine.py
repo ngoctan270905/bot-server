@@ -1,186 +1,177 @@
-import httpx
+import os
 from typing import List, Dict, Any, Optional
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_community.vectorstores import Redis as RedisVectorStore
+from langchain_community.chat_message_histories import RedisChatMessageHistory
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain.chains import create_history_aware_retriever, create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
 from app.core.config import settings
 from loguru import logger
 
-class AIEngine:
-    """
-    AI Engine xử lý logic RAG: Embedding -> Search -> Rerank -> LLM.
-    Sử dụng một AsyncClient duy nhất để tận dụng Connection Pooling.
-    """
+# --- 1. Đồng bộ Prompts từ Node.js ---
+QA_SYSTEM_PROMPT = (
+    "You are an assistant for question-answering tasks. "
+    "Use your own knowledge to answer user's question, in its original language. "
+    "if you dont know the answer, you can respond with something like 'I am not sure' in the user's question language."
+)
 
+CONTEXTUALIZE_Q_SYSTEM_PROMPT = (
+    "Given a chat history and the latest user question "
+    "which might reference context in the chat history, "
+    "formulate a standalone question which can be understood "
+    "without the chat history. Do NOT answer the question, "
+    "just reformulate it if needed and otherwise return it as is."
+)
+
+CONTEXT_QA_SYSTEM_PROMPT = (
+    "You are an assistant for question-answering tasks. "
+    "Use the following context to answer "
+    "the user's question, in its original language.\n\n"
+    "{context}\n"
+    "if no context is provided, you can use your own knowledge. "
+    "if you dont know the answer, you can respond with something like 'I am not sure' in the user's question language."
+)
+
+class AIEngine:
     def __init__(self):
-        self.timeout = httpx.Timeout(30.0, connect=5.0)
-        self._client: Optional[httpx.AsyncClient] = None
+        self.redis_url = settings.redis.url
+        self._started = False
 
     async def start(self):
-        """Khởi tạo client duy nhất (gọi trong lifespan)."""
-        if self._client is None:
-            self._client = httpx.AsyncClient(timeout=self.timeout)
-            logger.bind(context="AIEngine").info("AI Engine HTTP Client đã khởi tạo (Connection Pooling enabled).")
+        """Khởi tạo (nếu cần thiết cho các connection pool sau này)"""
+        self._started = True
+        logger.bind(context="AIEngine").info("AI Engine (LangChain) đã sẵn sàng.")
 
     async def stop(self):
-        """Đóng client (gọi trong lifespan shutdown)."""
-        if self._client:
-            await self._client.aclose()
-            self._client = None
-            logger.bind(context="AIEngine").info("AI Engine HTTP Client đã đóng.")
+        """Đóng kết nối (nếu cần)"""
+        self._started = False
+        logger.bind(context="AIEngine").info("AI Engine (LangChain) đã đóng.")
 
-    @property
-    def client(self) -> httpx.AsyncClient:
-        if self._client is None:
-            raise RuntimeError("AIEngine chưa được start(). Hãy gọi await ai_engine.start() trong lifespan.")
-        return self._client
-
-    async def get_embedding(self, texts: List[str]) -> List[List[float]]:
-        """Chuyển danh sách văn bản thành vector embedding."""
-        try:
-            response = await self.client.post(
-                settings.ai.embedding_url,
-                json={
-                    "model": settings.ai.embedding_model,
-                    "input": texts
-                }
+    def get_llm(self, model_name: Optional[str] = None, temperature: float = 0.3):
+        """Khởi tạo LLM (Hỗ trợ cả Local API, OpenAI và Gemini)"""
+        target_model = model_name or settings.ai.llm_model
+        
+        # Luồng dùng API Local hoặc OpenAI
+        if "gpt" in target_model or "gemma" in target_model or "bge" in target_model:
+            return ChatOpenAI(
+                model=target_model,
+                temperature=temperature,
+                openai_api_key=settings.ai.openai_key or "local-no-key",
+                openai_api_base=settings.ai.llm_url.replace("/chat/completions", ""),
             )
-            response.raise_for_status()
-            data = response.json()
-            return [item["embedding"] for item in data["data"]]
-        except Exception as e:
-            logger.error(f"Error in get_embedding: {e}")
-            raise
-
-    async def search_qdrant(self, vector: List[float], bot_id: str, limit: int = 5) -> List[Dict[str, Any]]:
-        """Tìm kiếm các vector tương đồng trên Qdrant, có lọc theo bot_id."""
-        try:
-            url = f"{settings.ai.qdrant_url}/collections/{settings.ai.qdrant_collection}/points/search"
-            payload = {
-                "vector": vector,
-                "limit": limit,
-                "with_payload": True,
-                "filter": {
-                    "must": [
-                        {"key": "botId", "match": {"value": bot_id}}
-                    ]
-                }
-            }
-            response = await self.client.post(url, json=payload)
-            response.raise_for_status()
-            return response.json().get("result", [])
-        except Exception as e:
-            logger.error(f"Error in search_qdrant: {e}")
-            return []
-
-    async def upsert_points(self, points: List[Dict[str, Any]]):
-        """Lưu các vectors và payload vào Qdrant."""
-        try:
-            url = f"{settings.ai.qdrant_url}/collections/{settings.ai.qdrant_collection}/points"
-            response = await self.client.put(url, json={"points": points})
-            response.raise_for_status()
-            logger.bind(context="AIEngine").info(f"Đã upsert {len(points)} points vào Qdrant.")
-        except Exception as e:
-            logger.error(f"Error in upsert_points: {e}")
-            raise
-
-    async def delete_points_by_bot(self, bot_id: str):
-        """Xóa toàn bộ points của một bot trong Qdrant."""
-        try:
-            url = f"{settings.ai.qdrant_url}/collections/{settings.ai.qdrant_collection}/points/delete"
-            payload = {
-                "filter": {
-                    "must": [
-                        {"key": "botId", "match": {"value": bot_id}}
-                    ]
-                }
-            }
-            response = await self.client.post(url, json=payload)
-            response.raise_for_status()
-            logger.bind(context="AIEngine").info(f"Đã xóa points cho bot {bot_id} trong Qdrant.")
-        except Exception as e:
-            logger.error(f"Error in delete_points_by_bot: {e}")
-
-    async def rerank(self, query: str, documents: List[Dict[str, Any]], top_k: int = 3) -> List[Dict[str, Any]]:
-        """Sắp xếp lại kết quả tìm kiếm bằng Reranker API."""
-        if not documents:
-            return []
-            
-        try:
-            response = await self.client.post(
-                settings.ai.reranker_url,
-                json={
-                    "model": settings.ai.reranker_model,
-                    "query": query,
-                    "documents": [doc["payload"]["text"] for doc in documents],
-                    "top_n": top_k
-                }
+        # Luồng dùng Gemini
+        elif "gemini" in target_model:
+            return ChatGoogleGenerativeAI(
+                model=target_model,
+                google_api_key=settings.ai.gemini_key,
+                temperature=temperature
             )
-            response.raise_for_status()
-            data = response.json()
+        return ChatOpenAI(model=target_model, temperature=temperature)
+
+    def get_embeddings(self):
+        """Khởi tạo Embedding Model (Local hoặc OpenAI)"""
+        return OpenAIEmbeddings(
+            model=settings.ai.embedding_model,
+            openai_api_key=settings.ai.openai_key or "local-no-key",
+            openai_api_base=settings.ai.embedding_url.replace("/embeddings", "")
+        )
+
+    def get_vector_store(self, bot_id: str):
+        """Kết nối vào Redis Vector Store (Dùng chung Index với Node.js)"""
+        return RedisVectorStore.from_existing_index(
+            embedding=self.get_embeddings(),
+            index_name=bot_id,
+            redis_url=self.redis_url,
+        )
+
+    async def ask(self, bot_id: str, question: str, conversation_id: str, bot_instructions: Optional[str] = None) -> str:
+        """
+        Luồng RAG đồng bộ 100% với Node.js:
+        History Aware -> Retrieval -> QA
+        """
+        try:
+            llm = self.get_llm()
             
-            results = data.get("results") or data.get("data")
-            reranked = []
-            for item in results:
-                idx = item["index"]
-                doc = documents[idx]
-                reranked.append({
-                    "text": doc["payload"]["text"],
-                    "score": item.get("relevance_score") or item.get("score") or 0
+            # Khởi tạo Vector Store Retriever
+            try:
+                vector_store = self.get_vector_store(bot_id)
+                retriever = vector_store.as_retriever()
+                has_vector_store = True
+            except ValueError:
+                # Nếu Index chưa tồn tại trên Redis (Bot chưa train)
+                logger.warning(f"Index {bot_id} chưa tồn tại trên Redis. Chuyển sang trả lời không có context.")
+                has_vector_store = False
+
+            # 1. Khôi phục lịch sử từ Redis
+            chat_history = RedisChatMessageHistory(
+                session_id=conversation_id,
+                url=self.redis_url,
+                ttl=3600 # 1 giờ giống Node.js
+            )
+
+            # Lấy lịch sử chat
+            messages = chat_history.messages
+
+            if has_vector_store:
+                # 2. Tạo Rephrase Prompt
+                contextualize_q_prompt = ChatPromptTemplate.from_messages([
+                    ("system", CONTEXTUALIZE_Q_SYSTEM_PROMPT),
+                    MessagesPlaceholder("chat_history"),
+                    ("human", "{input}"),
+                ])
+
+                # 3. Tạo History-Aware Retriever
+                history_aware_retriever = create_history_aware_retriever(
+                    llm, retriever, contextualize_q_prompt
+                )
+
+                # 4. Tạo QA Prompt
+                system_prompt = bot_instructions if bot_instructions else CONTEXT_QA_SYSTEM_PROMPT
+                qa_prompt = ChatPromptTemplate.from_messages([
+                    ("system", system_prompt),
+                    MessagesPlaceholder("chat_history"),
+                    ("human", "{input}"),
+                ])
+
+                # 5. Xây dựng Chain cuối cùng
+                question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
+                chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
+            else:
+                # Nếu không có Vector Store, chỉ trả lời bằng LLM + History
+                system_prompt = bot_instructions if bot_instructions else QA_SYSTEM_PROMPT
+                qa_prompt = ChatPromptTemplate.from_messages([
+                    ("system", system_prompt),
+                    MessagesPlaceholder("chat_history"),
+                    ("human", "{input}"),
+                ])
+                chain = qa_prompt | llm
+
+            # 6. Thực thi
+            if has_vector_store:
+                result = await chain.ainvoke({
+                    "input": question,
+                    "chat_history": messages
                 })
-            return reranked
+                answer = result["answer"]
+            else:
+                result = await chain.ainvoke({
+                    "input": question,
+                    "chat_history": messages
+                })
+                answer = result.content
+
+            # 7. Lưu câu trả lời của AI vào Redis History
+            chat_history.add_user_message(question)
+            chat_history.add_ai_message(answer)
+
+            return answer
+
         except Exception as e:
-            logger.error(f"Error in rerank: {e}")
-            return [{"text": d["payload"]["text"], "score": 1.0} for d in documents[:top_k]]
-
-    async def generate_answer(self, prompt: str, model: Optional[str] = None) -> str:
-        """Gọi LLM API để sinh câu trả lời."""
-        try:
-            response = await self.client.post(
-                settings.ai.llm_url,
-                json={
-                    "model": model or settings.ai.llm_model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "stream": False
-                }
-            )
-            response.raise_for_status()
-            data = response.json()
-            return data["choices"][0]["message"]["content"]
-        except Exception as e:
-            logger.error(f"Error in generate_answer: {e}")
-            return "Xin lỗi, tôi gặp trục trặc khi xử lý câu hỏi này."
-
-    async def ask(self, bot_id: str, question: str, bot_instructions: Optional[str] = "") -> str:
-        """
-        Luồng chính: Nhận câu hỏi -> RAG -> Trả lời.
-        """
-        # 1. Embedding
-        vectors = await self.get_embedding([f"query: {question}"])
-        if not vectors:
-            return await self.generate_answer(question)
-
-        # 2. Search (có lọc theo bot_id)
-        search_results = await self.search_qdrant(vectors[0], bot_id=bot_id)
-
-        # 3. Rerank
-        context_docs = await self.rerank(question, search_results)
-        
-        # 4. Build Prompt
-        context_text = "\n---\n".join([f"[Context]: {d['text']}" for d in context_docs])
-        
-        system_prompt = bot_instructions or "Bạn là một AI trợ lý hữu ích."
-        if context_text:
-            prompt = (
-                f"{system_prompt}\n\n"
-                f"Hãy dựa vào thông tin dưới đây để trả lời câu hỏi của người dùng. "
-                f"Nếu thông tin không có, hãy dùng kiến thức của bạn.\n\n"
-                f"Context:\n{context_text}\n\n"
-                f"Câu hỏi: {question}\n\n"
-                f"Trả lời:"
-            )
-        else:
-            prompt = f"{system_prompt}\n\nCâu hỏi: {question}\n\nTrả lời:"
-
-        # 5. LLM Call
-        return await self.generate_answer(prompt)
+            logger.error(f"Lỗi AI Engine: {e}")
+            return "Xin lỗi, tôi gặp sự cố khi xử lý câu hỏi."
 
 # Singleton instance
 ai_engine = AIEngine()
+

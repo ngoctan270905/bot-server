@@ -18,6 +18,12 @@ class RedisSettings(BaseSettings):
             database=self.db
         )
 
+    @property
+    def url(self) -> str:
+        if self.password:
+            return f"redis://:{self.password}@{self.host}:{self.port}/{self.db}"
+        return f"redis://{self.host}:{self.port}/{self.db}"
+
 class AISettings(BaseSettings):
     gemini_key: Optional[str] = Field(None, alias="GGG_AI_API_KEY")
     openai_key: Optional[str] = Field(None, alias="OPENAI_API_KEY")
