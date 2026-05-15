@@ -136,7 +136,7 @@ class ChatService:
             bot_instructions = bot["settings"].get("instructions", "")
 
         # 1. Gọi AI Engine lấy phản hồi
-        ai_text = await ai_engine.ask(question=message, bot_instructions=bot_instructions)
+        ai_text = await ai_engine.ask(bot_id=bot_id, question=message, bot_instructions=bot_instructions)
 
         # 2. Ước tính token (4 ký tự ~ 1 token)
         token_count = len(ai_text) // 4

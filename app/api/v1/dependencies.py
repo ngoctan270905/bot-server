@@ -21,6 +21,8 @@ from app.repositories.conversation_repository import ConversationRepository
 from app.repositories.chat_history_repository import ChatHistoryRepository
 from app.repositories.leads_repository import LeadsRepository
 from app.repositories.chat_analytics_repository import ChatAnalyticsRepository
+from app.repositories.bot_source_repository import BotDataSourceRepository
+from app.repositories.training_history_repository import TrainingHistoryRepository
 
 # Services
 from app.services.auth_service import AuthService
@@ -30,6 +32,7 @@ from app.services.bot_service import BotService
 from app.services.chat_service import ChatService
 from app.services.bot_analytics_service import BotAnalyticsService
 from app.services.lead_service import LeadService
+from app.services.bot_source_service import BotSourceService
 
 # Schemas
 from app.schemas.user import UserDetailResponse
@@ -84,6 +87,14 @@ async def get_leads_repository(db = Depends(get_database)) -> LeadsRepository:
 async def get_chat_analytics_repository(db = Depends(get_database)) -> ChatAnalyticsRepository:
     """Dependency cung cấp ChatAnalyticsRepository."""
     return ChatAnalyticsRepository(collection=db["ChatAnalytics"])
+
+async def get_bot_source_repository(db = Depends(get_database)) -> BotDataSourceRepository:
+    """Dependency cung cấp BotDataSourceRepository."""
+    return BotDataSourceRepository(collection=db["BotDataSource"])
+
+async def get_training_history_repository(db = Depends(get_database)) -> TrainingHistoryRepository:
+    """Dependency cung cấp TrainingHistoryRepository."""
+    return TrainingHistoryRepository(collection=db["TrainingHistory"])
 
 # --- Service Dependencies ---
 
@@ -163,6 +174,22 @@ async def get_lead_service(
     return LeadService(
         leads_repo=leads_repo,
         bot_repo=bot_repo,
+        member_repo=member_repo
+    )
+
+async def get_bot_source_service(
+    source_repo: BotDataSourceRepository = Depends(get_bot_source_repository),
+    bot_repo: BotRepository = Depends(get_bot_repository),
+    project_repo: ProjectRepository = Depends(get_project_repository),
+    training_repo: TrainingHistoryRepository = Depends(get_training_history_repository),
+    member_repo: MemberRepository = Depends(get_member_repository)
+) -> BotSourceService:
+    """Dependency cung cấp BotSourceService."""
+    return BotSourceService(
+        source_repo=source_repo,
+        bot_repo=bot_repo,
+        project_repo=project_repo,
+        training_repo=training_repo,
         member_repo=member_repo
     )
 

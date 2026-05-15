@@ -49,23 +49,54 @@ class AIEngine:
             logger.error(f"Error in get_embedding: {e}")
             raise
 
-    async def search_qdrant(self, vector: List[float], limit: int = 5) -> List[Dict[str, Any]]:
-        """Tìm kiếm các vector tương đồng trên Qdrant."""
+    async def search_qdrant(self, vector: List[float], bot_id: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """Tìm kiếm các vector tương đồng trên Qdrant, có lọc theo bot_id."""
         try:
             url = f"{settings.ai.qdrant_url}/collections/{settings.ai.qdrant_collection}/points/search"
-            response = await self.client.post(
-                url,
-                json={
-                    "vector": vector,
-                    "limit": limit,
-                    "with_payload": True
+            payload = {
+                "vector": vector,
+                "limit": limit,
+                "with_payload": True,
+                "filter": {
+                    "must": [
+                        {"key": "botId", "match": {"value": bot_id}}
+                    ]
                 }
-            )
+            }
+            response = await self.client.post(url, json=payload)
             response.raise_for_status()
             return response.json().get("result", [])
         except Exception as e:
             logger.error(f"Error in search_qdrant: {e}")
             return []
+
+    async def upsert_points(self, points: List[Dict[str, Any]]):
+        """Lưu các vectors và payload vào Qdrant."""
+        try:
+            url = f"{settings.ai.qdrant_url}/collections/{settings.ai.qdrant_collection}/points"
+            response = await self.client.put(url, json={"points": points})
+            response.raise_for_status()
+            logger.bind(context="AIEngine").info(f"Đã upsert {len(points)} points vào Qdrant.")
+        except Exception as e:
+            logger.error(f"Error in upsert_points: {e}")
+            raise
+
+    async def delete_points_by_bot(self, bot_id: str):
+        """Xóa toàn bộ points của một bot trong Qdrant."""
+        try:
+            url = f"{settings.ai.qdrant_url}/collections/{settings.ai.qdrant_collection}/points/delete"
+            payload = {
+                "filter": {
+                    "must": [
+                        {"key": "botId", "match": {"value": bot_id}}
+                    ]
+                }
+            }
+            response = await self.client.post(url, json=payload)
+            response.raise_for_status()
+            logger.bind(context="AIEngine").info(f"Đã xóa points cho bot {bot_id} trong Qdrant.")
+        except Exception as e:
+            logger.error(f"Error in delete_points_by_bot: {e}")
 
     async def rerank(self, query: str, documents: List[Dict[str, Any]], top_k: int = 3) -> List[Dict[str, Any]]:
         """Sắp xếp lại kết quả tìm kiếm bằng Reranker API."""
@@ -117,7 +148,7 @@ class AIEngine:
             logger.error(f"Error in generate_answer: {e}")
             return "Xin lỗi, tôi gặp trục trặc khi xử lý câu hỏi này."
 
-    async def ask(self, question: str, bot_instructions: Optional[str] = "") -> str:
+    async def ask(self, bot_id: str, question: str, bot_instructions: Optional[str] = "") -> str:
         """
         Luồng chính: Nhận câu hỏi -> RAG -> Trả lời.
         """
@@ -126,8 +157,8 @@ class AIEngine:
         if not vectors:
             return await self.generate_answer(question)
 
-        # 2. Search
-        search_results = await self.search_qdrant(vectors[0])
+        # 2. Search (có lọc theo bot_id)
+        search_results = await self.search_qdrant(vectors[0], bot_id=bot_id)
 
         # 3. Rerank
         context_docs = await self.rerank(question, search_results)

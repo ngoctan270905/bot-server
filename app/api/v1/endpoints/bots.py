@@ -5,10 +5,12 @@ from datetime import datetime
 from app.services.bot_service import BotService
 from app.services.bot_analytics_service import BotAnalyticsService
 from app.services.lead_service import LeadService
+from app.services.bot_source_service import BotSourceService
 from app.api.v1.dependencies import (
     get_bot_service, 
     get_bot_analytics_service, 
     get_lead_service, 
+    get_bot_source_service,
     get_current_user
 )
 from app.schemas.bot import (
@@ -22,6 +24,7 @@ from app.schemas.bot import (
     BotPublicResponse,
     SkKeyResponse
 )
+from app.schemas.source import SourceResponse, TrainingHistoryResponse
 from app.schemas.user import UserDetailResponse
 from app.schemas.base import UnifiedResponse
 
@@ -147,3 +150,38 @@ async def create_bot_lead(
     Không yêu cầu đăng nhập nếu là API công khai.
     """
     return await lead_service.create_lead(id, lead_in)
+
+# --- Source & Training Endpoints ---
+
+@router.get("/{id}/source", response_model=List[SourceResponse])
+async def get_bot_sources(
+    id: str,
+    current_user: UserDetailResponse = Depends(get_current_user),
+    source_service: BotSourceService = Depends(get_bot_source_service)
+) -> Any:
+    """
+    Lấy danh sách các nguồn dữ liệu của Bot.
+    """
+    return await source_service.get_bot_sources(str(current_user.id), id)
+
+@router.get("/{id}/training-history", response_model=List[TrainingHistoryResponse])
+async def get_bot_training_history(
+    id: str,
+    current_user: UserDetailResponse = Depends(get_current_user),
+    source_service: BotSourceService = Depends(get_bot_source_service)
+) -> Any:
+    """
+    Lấy lịch sử các lần huấn luyện Bot.
+    """
+    return await source_service.get_training_history(str(current_user.id), id)
+
+@router.post("/{id}/training", status_code=status.HTTP_200_OK)
+async def trigger_bot_training(
+    id: str,
+    current_user: UserDetailResponse = Depends(get_current_user),
+    source_service: BotSourceService = Depends(get_bot_source_service)
+) -> Any:
+    """
+    Kích hoạt huấn luyện Bot thủ công.
+    """
+    return await source_service.trigger_training(str(current_user.id), id)
