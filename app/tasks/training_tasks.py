@@ -6,14 +6,16 @@ from app.db.mongodb import get_database
 from app.services.ai_engine import ai_engine
 from app.helper.document_processor import document_processor
 from langchain_core.documents import Document
+from langchain_community.vectorstores import Redis as RedisVectorStore
 from loguru import logger
+from bson import ObjectId
 
 async def train_bot_task(ctx, bot_id: str, source_ids: List[str]):
     """
     Task xử lý ngầm để huấn luyện bot.
-    1. Lấy dữ liệu từ các sources.
-    2. Cắt nhỏ và Embedding.
-    3. Lưu vào Qdrant.
+    1. Lấy dữ liệu từ các sources (MongoDB).
+    2. Cắt nhỏ văn bản (1000/100).
+    3. Lưu vào Redis Vector Store (Đồng bộ với Node.js).
     4. Cập nhật trạng thái và lưu lịch sử.
     """
     db = get_database()
@@ -21,7 +23,6 @@ async def train_bot_task(ctx, bot_id: str, source_ids: List[str]):
         logger.bind(context="Training").info(f"Bắt đầu huấn luyện cho bot {bot_id} với {len(source_ids)} sources.")
         
         # 1. Lấy danh sách sources từ DB
-        from bson import ObjectId
         sources_cursor = db["BotDataSource"].find({"_id": {"$in": [ObjectId(id) for id in source_ids]}})
         sources = [s async for s in sources_cursor]
         
@@ -32,7 +33,7 @@ async def train_bot_task(ctx, bot_id: str, source_ids: List[str]):
         all_docs = []
         total_chars = 0
         
-        # 2. Xử lý từng source
+        # 2. Xử lý từng loại source (giống logic Node.js)
         for source in sources:
             s_type = source["type"]
             s_docs = []
@@ -40,16 +41,19 @@ async def train_bot_task(ctx, bot_id: str, source_ids: List[str]):
             if s_type == "Text":
                 s_docs.append(Document(page_content=source["text"]))
             elif s_type == "Website":
-                s_docs.append(Document(page_content=source["text"], metadata={"source": source.get("fetchedUrl")}))
+                s_docs.append(Document(
+                    page_content=source["text"], 
+                    metadata={"source": source.get("fetchedUrl")}
+                ))
             elif s_type == "QA":
                 q = source["qna"]["question"]
                 a = source["qna"]["answer"]
                 s_docs.append(Document(page_content=f"Question: {q}\nAnswer: {a}"))
             elif s_type == "File":
                 file_path = source["filePath"]
-                # Cần đảm bảo đường dẫn đúng (thường join với UPLOADS_DIR)
-                # Giả sử filePath đã là đường dẫn tương đối từ project root hoặc uploads dir
-                full_path = file_path # Cần check kỹ chỗ này
+                # Đảm bảo đường dẫn đầy đủ tới file trong thư mục static/uploads
+                # Nếu filePath chưa có tiền tố, ta cần join với đường dẫn gốc của project
+                full_path = file_path if os.path.isabs(file_path) else os.path.join(os.getcwd(), file_path)
                 s_docs = await document_processor.load_file(full_path)
             
             all_docs.extend(s_docs)
@@ -59,34 +63,34 @@ async def train_bot_task(ctx, bot_id: str, source_ids: List[str]):
             logger.bind(context="Training").warning(f"Không trích xuất được nội dung nào từ các sources của bot {bot_id}.")
             return
 
-        # 3. Cắt nhỏ văn bản
+        # 3. Cắt nhỏ văn bản (Sử dụng cấu hình 1000/100 trong document_processor)
         chunks = document_processor.chunk_documents(all_docs)
         
-        # 4. Embedding
-        texts_to_embed = [chunk.page_content for chunk in chunks]
-        # Batch embedding nếu quá nhiều (tùy API)
-        embeddings = await ai_engine.get_embedding(texts_to_embed)
+        # 4. Lưu vào Redis thông qua LangChain
+        embeddings = ai_engine.get_embeddings()
         
-        # 5. Lưu vào Qdrant
-        points = []
-        for i, emb in enumerate(embeddings):
-            points.append({
-                "id": str(uuid.uuid4()),
-                "vector": emb,
-                "payload": {
-                    "botId": bot_id,
-                    "text": chunks[i].page_content,
-                    "metadata": chunks[i].metadata
-                }
-            })
-            
-        # Xóa dữ liệu cũ của bot này trước khi nạp mới (giống Node.js dropIndex)
-        await ai_engine.delete_points_by_bot(bot_id)
-        
-        # Upsert points mới
-        await ai_engine.upsert_points(points)
+        # Xóa dữ liệu cũ của bot này trên Redis trước khi nạp mới (Giống dropIndex của Node.js)
+        try:
+            # Kiểm tra và xóa index nếu tồn tại
+            RedisVectorStore.drop_index(
+                index_name=bot_id,
+                delete_documents=True,
+                redis_url=ai_engine.redis_url
+            )
+            logger.bind(context="Training").info(f"Đã xóa index cũ: {bot_id}")
+        except Exception as e:
+            # Nếu index chưa tồn tại thì bỏ qua
+            logger.bind(context="Training").debug(f"Không thể xóa index (có thể chưa tồn tại): {e}")
 
-        # 6. Cập nhật trạng thái Done và lưu History
+        # Nạp dữ liệu mới vào Redis
+        RedisVectorStore.from_documents(
+            documents=chunks,
+            embedding=embeddings,
+            index_name=bot_id,
+            redis_url=ai_engine.redis_url
+        )
+
+        # 5. Cập nhật trạng thái Done và lưu History vào MongoDB
         await db["BotDataSource"].update_many(
             {"_id": {"$in": [ObjectId(id) for id in source_ids]}},
             {"$set": {"trainingStatus": "Done", "updatedAt": datetime.now(timezone.utc)}}
@@ -103,12 +107,11 @@ async def train_bot_task(ctx, bot_id: str, source_ids: List[str]):
             {"$set": {"characterUsage": total_chars}}
         )
 
-        logger.bind(context="Training").success(f"Huấn luyện thành công cho bot {bot_id}. Tổng số chunks: {len(points)}")
+        logger.bind(context="Training").success(f"Huấn luyện thành công cho bot {bot_id}. Tổng số chunks: {len(chunks)}")
 
     except Exception as e:
         logger.bind(context="Training").error(f"Lỗi khi huấn luyện bot {bot_id}: {e}")
         # Cập nhật trạng thái Failed
-        from bson import ObjectId
         await db["BotDataSource"].update_many(
             {"_id": {"$in": [ObjectId(id) for id in source_ids]}},
             {"$set": {"trainingStatus": "Failed", "updatedAt": datetime.now(timezone.utc)}}
