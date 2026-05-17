@@ -80,10 +80,16 @@ class AIEngine:
 
     def get_vector_store(self, bot_id: str):
         """Kết nối vào Redis Vector Store (Dùng chung Index với Node.js)"""
+        from langchain_community.vectorstores.redis.schema import RedisModel
+        
+        # Mặc định schema để tránh lỗi thiếu tham số ở bản 0.3.x
+        index_schema = RedisModel().as_dict()
+        
         return RedisVectorStore.from_existing_index(
             embedding=self.get_embeddings(),
             index_name=bot_id,
             redis_url=self.redis_url,
+            schema=index_schema
         )
 
     async def ask(self, bot_id: str, question: str, conversation_id: str, bot_instructions: Optional[str] = None) -> str:
@@ -169,8 +175,12 @@ class AIEngine:
             return answer
 
         except Exception as e:
-            logger.error(f"Lỗi AI Engine: {e}")
-            return "Xin lỗi, tôi gặp sự cố khi xử lý câu hỏi."
+            import traceback
+            target_model = settings.ai.llm_model
+            llm_url = settings.ai.llm_url
+            logger.error(f"Lỗi AI Engine khi gọi model '{target_model}' tại '{llm_url}': {str(e)}")
+            logger.debug(traceback.format_exc())
+            return f"Xin lỗi, tôi gặp sự cố khi kết nối tới AI (Model: {target_model}). Vui lòng kiểm tra lại dịch vụ AI."
 
 # Singleton instance
 ai_engine = AIEngine()
