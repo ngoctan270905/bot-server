@@ -24,3 +24,11 @@ class EmailPasswordUserRepository(BaseRepository):
             {"$set": {"password": hashed_password}}
         )
         return result.modified_count > 0
+
+    async def get_by_user_id(self, user_id: str) -> Optional[dict]:
+      """
+      Tìm bản ghi email/password theo user ID.
+      """
+      filter_query = {"userId": user_id}
+      email_password_user = await self.find_one(filter_query)
+      return email_password_user

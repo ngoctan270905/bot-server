@@ -34,7 +34,6 @@ async def lifespan(app: FastAPI):
     # Khởi tạo các kết nối Database
     await connect_to_mongo()
     await redis_manager.connect()
-    await init_qdrant()
     await ai_engine.start()
 
     logger.info("Khởi động ứng dụng thành công.")
@@ -138,16 +137,3 @@ app.add_middleware(RequestIDMiddleware)
 # ---- Routers ----
 # Tích hợp toàn bộ API v1
 app.include_router(api_router, prefix=settings.API_V1_STR)
-
-@app.get("/", response_model=UnifiedResponse[dict], tags=["System"])
-@limiter.limit("5/minute")
-def read_root(request: Request):
-    logger.info("Root endpoint accessed.")
-    return UnifiedResponse(
-        success=True,
-        data={"message": "Welcome to " + settings.PROJECT_NAME}
-    )
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

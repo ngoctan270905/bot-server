@@ -57,16 +57,18 @@ class ProjectService:
         self._chat_history_repo = chat_history_repo
 
     async def get_projects(self, user_id: str) -> List[ProjectListAll]:
-        """Lấy danh sách project mà user tham gia."""
-        project_ids = await self._member_repo.get_user_projects(user_id)
-        
-        projects = []
-        for pid in project_ids:
-            p = await self._project_repo.get_by_id(pid)
-            if p:
-                projects.append(p)
-                
-        return [ProjectListAll.model_validate(p) for p in projects]
+        """
+        Lấy danh sách project mà user tham gia.
+        """
+        project_id_list = await self._member_repo.get_user_projects(user_id)
+        project_document_list = await self._project_repo.get_by_ids(project_id_list)
+
+        response_project_list = []
+        for project_document in project_document_list:
+            validated_project = ProjectListAll.model_validate(project_document)
+            response_project_list.append(validated_project)
+
+        return response_project_list
 
     async def create_project(self, user_id: str, project_in: ProjectCreate, user_email: str) -> ProjectDetailResponse:
         """Tạo project mới, thêm member admin và billing placeholder."""
@@ -121,7 +123,7 @@ class ProjectService:
 
         update_data = project_in.model_dump(exclude_unset=True)
         updated_project = await self._project_repo.update(project_id, update_data)
-        
+
         if not updated_project:
             raise NotFoundException(detail="Project not found")
 
@@ -149,17 +151,24 @@ class ProjectService:
         if not project:
             raise NotFoundException(detail="Project not found")
 
-        sub_id = project.get("subscriptionId", "package_starter")
-        sub_data = next((s for s in SUBSCRIPTIONS if s["id"] == sub_id), SUBSCRIPTIONS[0])
-        
-        return ProjectSubscriptionResponse.model_validate(sub_data)
+        subscription_id = project.get("subscriptionId", "package_starter")
+        subscription_data = SUBSCRIPTIONS[0]
+
+        for subscription in SUBSCRIPTIONS:
+
+          if subscription["id"] == subscription_id:
+            subscription_data = subscription
+
+            break
+
+        return ProjectSubscriptionResponse.model_validate(subscription_data)
 
     async def get_project_usage(
-        self, 
-        user_id: str, 
-        project_id: str, 
-        from_date: Optional[str] = None, 
-        to_date: Optional[str] = None, 
+        self,
+        user_id: str,
+        project_id: str,
+        from_date: Optional[str] = None,
+        to_date: Optional[str] = None,
         bot_id: Optional[str] = None
     ) -> ProjectUsageResponse:
         """Thống kê sử dụng của project."""
@@ -169,40 +178,47 @@ class ProjectService:
 
         # 1. Lấy danh sách bots của project để lọc tin nhắn
         bots = await self._bot_repo.get_by_project(project_id)
-        bot_ids = [str(b["_id"]) for b in bots]
-        
+        bot_ids = []
+
+        for bot in bots:
+          bot_ids.append(str(bot["_id"]))
+
         if bot_id and bot_id not in bot_ids:
              raise ForbiddenException(detail="Bot does not belong to this project")
 
         # 2. Query tin nhắn
         start_dt = datetime.fromisoformat(from_date).replace(tzinfo=timezone.utc) if from_date else None
         end_dt = datetime.fromisoformat(to_date).replace(tzinfo=timezone.utc) if to_date else None
-        
+
         # Cần cập nhật repository để lọc theo danh sách bot_ids nếu không có bot_id cụ thể
-        query = {"role": "agent", "botId": {"$in": bot_ids}}
+        query = {"role": "ai", "botId": {"$in": bot_ids}}
         if bot_id:
             query["botId"] = bot_id
         if start_dt or end_dt:
-            query["created_at"] = {}
-            if start_dt: query["created_at"]["$gte"] = start_dt
-            if end_dt: query["created_at"]["$lt"] = end_dt
+          query["createdAt"] = {}
+
+          if start_dt:
+            query["createdAt"]["$gte"] = start_dt
+
+          if end_dt:
+            query["createdAt"]["$lt"] = end_dt
 
         chat_histories = await self._chat_history_repo.find_many(filter=query, limit=10000)
-        
+
         total_messages = len(chat_histories)
         message_per_days = {}
         message_per_bots = {}
 
         for chat in chat_histories:
             # Group by date
-            dt = chat.get("created_at")
+            dt = chat.get("createdAt")
             if dt:
                 if isinstance(dt, str):
                     date_str = dt.split('T')[0]
                 else:
                     date_str = dt.strftime('%Y-%m-%d')
                 message_per_days[date_str] = message_per_days.get(date_str, 0) + 1
-            
+
             # Group by bot
             bid = chat.get("botId")
             if bid:

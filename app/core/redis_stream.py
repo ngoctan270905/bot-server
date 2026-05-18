@@ -7,14 +7,49 @@ from redis.asyncio import Redis
 
 class RedisStreamConsumer:
     """
-    Base Class dùng để consume dữ liệu từ Redis Streams.
-    Tái hiện lại logic của dự án gốc (TypeScript) bao gồm:
-    - Consumer Group management
-    - Read new messages (XREADGROUP)
-    - Fault tolerance (XPENDING, XCLAIM)
-    - Auto ACK & Delete
-    """
+    Consumer base class dùng để đọc và xử lý message từ Redis Stream
+    thông qua Consumer Group.
 
+    Features:
+    - Tự tạo Consumer Group nếu chưa tồn tại.
+    - Consume message bất đồng bộ bằng asyncio.
+    - ACK + xóa message sau khi xử lý thành công.
+    - Hỗ trợ reclaim (claim lại) message bị abandon / pending quá lâu.
+    - Có thể kế thừa để implement business logic riêng qua `handle_record`.
+
+    Attributes:
+        redis (Redis):
+            Redis async client.
+
+        stream_name (str):
+            Tên Redis Stream cần consume.
+
+        group_name (str):
+            Tên Consumer Group.
+
+        consumer_name (str):
+            Tên consumer hiện tại.
+            Nếu không truyền vào sẽ tự sinh từ hostname + pid.
+
+        read_items (int):
+            Số lượng message đọc mỗi lần.
+
+        block_ms (int):
+            Thời gian block khi chờ message mới (milliseconds).
+
+        check_abandoned_ms (int):
+            Thời gian tối thiểu để xem một message là abandoned.
+
+        disable_abandoned_check (bool):
+            Nếu True thì tắt reclaim abandoned message.
+
+        exit_loop (bool):
+            Flag dùng để stop loop an toàn.
+
+    Usage:
+        Kế thừa class này và override `handle_record`.
+
+    """
     def __init__(
         self,
         redis_client: Redis,
@@ -31,12 +66,12 @@ class RedisStreamConsumer:
         self.group_name = group_name
         # Nếu không có tên consumer, lấy hostname_pid làm mặc định
         self.consumer_name = consumer_name or f"{os.uname().nodename}_{os.getpid()}"
-        
+
         self.read_items = read_items
         self.block_ms = block_ms
         self.check_abandoned_ms = check_abandoned_ms
         self.disable_abandoned_check = disable_abandoned_check
-        
+
         self.exit_loop = False
         self._read_task: Optional[asyncio.Task] = None
         self._abandoned_task: Optional[asyncio.Task] = None
@@ -103,9 +138,9 @@ class RedisStreamConsumer:
                                 # Nếu lỗi, vẫn ACK những cái trước đó rồi dừng batch này
                                 await self.ack_ids(processed_ids)
                                 break
-                        
+
                         await self.ack_ids(processed_ids)
-                
+
                 # Tránh làm nghẽn event loop
                 await asyncio.sleep(0.01)
 
@@ -126,7 +161,7 @@ class RedisStreamConsumer:
                 if pending:
                     # Lọc ra những cái quá hạn
                     ids_to_claim = [
-                        p["message_id"] for p in pending 
+                        p["message_id"] for p in pending
                         if p["idle"] > self.check_abandoned_ms
                     ]
 
@@ -164,7 +199,7 @@ class RedisStreamConsumer:
         """Bắt đầu tiến trình consume."""
         logger.bind(context="Stream").info(f"Starting consumer {self.consumer_name} for {self.stream_name}")
         await self.setup()
-        
+
         self._read_task = asyncio.create_task(self._read_group_loop())
         if not self.disable_abandoned_check:
             self._abandoned_task = asyncio.create_task(self._check_abandoned_loop())

@@ -2,8 +2,8 @@ from fastapi import Depends, status
 from fastapi.security import OAuth2PasswordBearer
 from app.core.config import settings
 from app.core.exceptions import (
-    UnauthorizedException, 
-    BadRequestException, 
+    UnauthorizedException,
+    BadRequestException,
     ForbiddenException
 )
 from app.core.security import decode_token
@@ -218,5 +218,11 @@ async def get_current_user(
 
     if not user_raw.get("active", True):
         raise BadRequestException(detail="Tài khoản đã bị vô hiệu hóa")
+
+    email_repo = EmailPasswordUserRepository(collection=db["EmailPasswordUser"])
+    email_password_raw = await email_repo.get_by_user_id(str(user_raw["_id"]))
+
+    if email_password_raw is not None:
+      user_raw["email_pw"] = email_password_raw
 
     return UserDetailResponse.model_validate(user_raw)
