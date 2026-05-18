@@ -33,7 +33,7 @@ async def cron_sync_all_bots_analytics_task(ctx):
         db = get_database()
         logger.bind(context="Cron").info("Bắt đầu chạy Cron Job đồng bộ Analytics cho tất cả các Bot...")
         
-        # 1. Lấy danh sách tất cả các Bot
+        # 1. Lấy danh sách tất cả các Bot (find() KHÔNG await trong pymongo async)
         bots_cursor = db["BotInstance"].find({}, {"_id": 1})
         bots = [bot async for bot in bots_cursor]
         
@@ -54,7 +54,7 @@ async def sync_bot_analytics_internal(db, bot_id: str, date: datetime):
         start_of_day = date.replace(hour=0, minute=0, second=0, microsecond=0)
         end_of_day = start_of_day + timedelta(days=1)
 
-        # Thống kê Conversations theo Channel
+        # Thống kê Conversations theo Channel (aggregate() PHẢI await)
         conv_pipeline = [
             {
                 "$match": {
@@ -69,13 +69,13 @@ async def sync_bot_analytics_internal(db, bot_id: str, date: datetime):
                 }
             }
         ]
-        conv_cursor = db["Conversation"].aggregate(conv_pipeline)
+        conv_cursor = await db["Conversation"].aggregate(conv_pipeline)
         conv_stats = [item async for item in conv_cursor]
         
         total_chat = sum(item["totalChat"] for item in conv_stats)
         chats_by_channel = [{"channel": item["_id"], "totalChat": item["totalChat"]} for item in conv_stats]
 
-        # Thống kê ChatHistory (Messages và Thumbs)
+        # Thống kê ChatHistory (Messages và Thumbs) (aggregate() PHẢI await)
         chat_pipeline = [
             {
                 "$match": {
@@ -90,7 +90,7 @@ async def sync_bot_analytics_internal(db, bot_id: str, date: datetime):
                 }
             }
         ]
-        chat_cursor = db["ChatHistory"].aggregate(chat_pipeline)
+        chat_cursor = await db["ChatHistory"].aggregate(chat_pipeline)
         chat_stats = [item async for item in chat_cursor]
 
         total_message = sum(item["count"] for item in chat_stats)

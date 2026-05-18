@@ -14,7 +14,8 @@ from app.core.security import (
     create_refresh_token,
     decode_token
 )
-from app.schemas.user import UserCreateResponse, UserDetailResponse
+from app.schemas.user import UserCreate, UserCreateResponse, UserDetailResponse
+from app.schemas.auth import Token
 from app.schemas.base import UnifiedResponse
 from app.core.exceptions import (
     BadRequestException,
@@ -35,13 +36,13 @@ class AuthService:
         self._user_repo = user_repository
         self._email_pw_repo = email_pw_repository
 
-    async def register_email_password(self, user_in: dict) -> dict:
+    async def register_email_password(self, user_in: UserCreate) -> Token:
         """
         Đăng ký tài khoản bằng email/password.
-        Trả về tokens ngay sau khi đăng ký (giống dự án gốc).
+        Trả về tokens ngay sau khi đăng ký.
         """
-        email = user_in.get("email")
-        password = user_in.get("password")
+        email = user_in.email
+        password = user_in.password
 
         # 1. Kiểm tra tồn tại
         existing_pw_user = await self._email_pw_repo.get_by_email(email)
@@ -68,23 +69,22 @@ class AuthService:
         # 4. Cập nhật ngược lại relation
         await self._email_pw_repo.update(new_email_pw["_id"], {"userId": new_user["_id"]})
 
-        # 5. Tạo tokens (Đăng ký xong login luôn - Giống dự án gốc)
+        # 5. Tạo tokens
         access_token = create_access_token(subject=new_user["_id"])
         refresh_token = create_refresh_token(subject=new_user["_id"])
 
         # 6. Lưu token vào DB
         await self._user_repo.update_tokens(new_user["_id"], access_token, refresh_token)
 
-        return {
-            "access_token": access_token,
-            "token_type": "bearer",
-            "refresh_token": refresh_token
-        }
+        return Token(
+            access_token=access_token,
+            token_type="bearer",
+            refresh_token=refresh_token
+        )
 
-    async def login_email_password(self, email: str, password: str) -> dict:
+    async def login_email_password(self, email: str, password: str) -> Token:
         """
         Đăng nhập bằng email/password.
-        Trả về cấu trúc phẳng để tương thích với OAuth2 (Swagger Authorize).
         """
         # 1. Tìm EmailPasswordUser
         email_pw_user = await self._email_pw_repo.get_by_email(email)
@@ -111,11 +111,11 @@ class AuthService:
         # 5. Lưu token vào DB
         await self._user_repo.update_tokens(user["_id"], access_token, refresh_token)
 
-        return {
-            "access_token": access_token,
-            "token_type": "bearer",
-            "refresh_token": refresh_token
-        }
+        return Token(
+            access_token=access_token,
+            token_type="bearer",
+            refresh_token=refresh_token
+        )
 
     async def logout(self, user_id: str) -> None:
         """
@@ -124,7 +124,7 @@ class AuthService:
         await self._user_repo.update_tokens(user_id, "", "")
         return None
 
-    async def refresh_token(self, refresh_token: str) -> dict:
+    async def refresh_token(self, refresh_token: str) -> Token:
         """
         Làm mới Access Token từ Refresh Token.
         """
@@ -139,7 +139,11 @@ class AuthService:
             new_access_token = create_access_token(subject=user_id)
             await self._user_repo.update(user_id, {"token": new_access_token})
 
-            return {"token": new_access_token}
+            return Token(
+                access_token=new_access_token,
+                token_type="bearer",
+                refresh_token=refresh_token
+            )
         except Exception:
             raise UnauthorizedException(detail="Refresh token expired or invalid")
 
@@ -178,16 +182,10 @@ class AuthService:
 
         return None
 
-    # Note: Login Facebook/Firebase sẽ cần thêm HTTP client (httpx) và cấu hình app
-    # Tôi sẽ implement logic DB chính ở đây.
-
-    async def login_facebook(self, access_token: str) -> dict:
+    async def login_facebook(self, access_token: str) -> Token:
         """
         Đăng nhập bằng Facebook Access Token.
-        Xác thực với Facebook Graph API trước khi xử lý login.
         """
-
-        # 1. Gọi Facebook Graph API để verify token
         url = "https://graph.facebook.com/me"
         params = {
             "fields": "id,name,email",
@@ -204,7 +202,6 @@ class AuthService:
             email = fb_user.get("email")
             name = fb_user.get("name")
 
-        # 2. Sử dụng logic login social để tạo/cập nhật user
         return await self.login_social(
             provider="fb",
             profile_id=profile_id,
@@ -213,11 +210,10 @@ class AuthService:
             name=name
         )
 
-    async def login_social(self, provider: str, profile_id: str, email: str | None, access_token: str, name: str | None = None) -> dict:
+    async def login_social(self, provider: str, profile_id: str, email: str | None, access_token: str, name: str | None = None) -> Token:
         """
-        Logic chung cho Social Login (Facebook/Firebase).
+        Logic chung cho Social Login.
         """
-        # 1. Tìm User theo provider và profileId
         provider_filter = {
             "provider": provider,
             f"{provider}.profileId": profile_id
@@ -225,7 +221,6 @@ class AuthService:
         user = await self._user_repo.find_one(provider_filter)
 
         if not user:
-            # 2. Nếu chưa có, tạo User mới
             user_data = {
                 "name": name or (email.split("@")[0] if email else provider),
                 "provider": provider,
@@ -239,18 +234,15 @@ class AuthService:
             }
             user = await self._user_repo.create(user_data)
         else:
-            # Cập nhật lại accessToken mới nhất
             await self._user_repo.update(user["_id"], {f"{provider}.accessToken": access_token})
 
-        # 3. Tạo tokens của hệ thống
         access_token_jwt = create_access_token(subject=user["_id"])
         refresh_token_jwt = create_refresh_token(subject=user["_id"])
 
-        # 4. Lưu token vào DB để quản lý phiên (Single Session)
         await self._user_repo.update_tokens(user["_id"], access_token_jwt, refresh_token_jwt)
 
-        return {
-            "access_token": access_token_jwt,
-            "token_type": "bearer",
-            "refresh_token": refresh_token_jwt
-        }
+        return Token(
+            access_token=access_token_jwt,
+            token_type="bearer",
+            refresh_token=refresh_token_jwt
+        )

@@ -4,26 +4,26 @@ from typing import Any
 
 from app.services.auth_service import AuthService
 from app.api.v1.dependencies import get_auth_service, get_current_user
-from app.schemas.user import UserCreate, UserCreateResponse, UserDetailResponse
-from app.schemas.base import UnifiedResponse
+from app.schemas.user import UserCreate, UserDetailResponse
+from app.schemas.auth import Token, RefreshTokenRequest
 
 router = APIRouter()
 
-@router.post("/register", response_model=dict, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
 async def register(
     user_in: UserCreate,
     auth_service: AuthService = Depends(get_auth_service)
-) -> Any:
+) -> Token:
     """
-    Đăng ký tài khoản mới và trả về Token ngay lập tức.
+    Đăng ký tài khoản mới và trả về Token.
     """
-    return await auth_service.register_email_password(user_in.model_dump())
+    return await auth_service.register_email_password(user_in)
 
-@router.post("/login", response_model=dict)
+@router.post("/login", response_model=Token)
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     auth_service: AuthService = Depends(get_auth_service)
-) -> Any:
+) -> Token:
     """
     Đăng nhập bằng OAuth2 compatible token login (Email/Password).
     """
@@ -42,15 +42,15 @@ async def logout(
     """
     return await auth_service.logout(str(current_user.id))
 
-@router.post("/refresh-token", response_model=dict)
+@router.post("/refresh-token", response_model=Token)
 async def refresh_token(
-    refreshToken: str = Body(..., embed=True),
+    request: RefreshTokenRequest,
     auth_service: AuthService = Depends(get_auth_service)
-) -> Any:
+) -> Token:
     """
     Làm mới Access Token bằng Refresh Token.
     """
-    return await auth_service.refresh_token(refreshToken)
+    return await auth_service.refresh_token(request.refresh_token)
 
 @router.post("/reset-password", response_model=None)
 async def reset_password(
@@ -79,21 +79,21 @@ async def forgot_password(
     return await auth_service.forgot_password(email)
 
 # Social Login (Placeholder for external logic)
-@router.post("/login-facebook", response_model=dict)
+@router.post("/login-facebook", response_model=Token)
 async def login_facebook(
     accessToken: str = Body(..., embed=True),
     auth_service: AuthService = Depends(get_auth_service)
-) -> Any:
+) -> Token:
     """
     Đăng nhập bằng Facebook Access Token.
     """
     return await auth_service.login_facebook(accessToken)
 
-@router.post("/login-firebase", response_model=dict)
+@router.post("/login-firebase", response_model=Token)
 async def login_firebase(
     accessToken: str = Body(..., embed=True),
     auth_service: AuthService = Depends(get_auth_service)
-) -> Any:
+) -> Token:
     """
     Đăng nhập bằng Firebase ID Token.
     """

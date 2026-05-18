@@ -7,7 +7,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 class BaseRepository:
     """
     Base Repository cung cấp các thao tác CRUD cơ bản với MongoDB Async.
-    Tuân thủ nguyên tắc:
+    Nguyên tắc:
     - Chỉ thao tác với Database.
     - Trả về dữ liệu thô (dict hoặc list[dict]).
     - Tự động convert ObjectId sang str.
@@ -33,7 +33,7 @@ class BaseRepository:
             data["created_at"] = datetime.now(timezone.utc)
         if "updated_at" not in data:
             data["updated_at"] = datetime.now(timezone.utc)
-            
+
         result = await self.collection.insert_one(data)
         data["_id"] = str(result.inserted_id)
         return data
@@ -52,10 +52,10 @@ class BaseRepository:
         return self._format_id(doc) if doc else None
 
     async def find_many(
-        self, 
-        filter: dict = {}, 
-        sort: List[Tuple[str, int]] = [("_id", 1)], 
-        skip: int = 0, 
+        self,
+        filter: dict = {},
+        sort: List[Tuple[str, int]] = [("_id", 1)],
+        skip: int = 0,
         limit: int = 20,
         projection: Optional[dict] = None
     ) -> List[dict]:
@@ -69,7 +69,7 @@ class BaseRepository:
         data["updated_at"] = datetime.now(timezone.utc)
         # Loại bỏ _id nếu có để tránh lỗi MongoDB
         data.pop("_id", None)
-        
+
         try:
             updated_doc = await self.collection.find_one_and_update(
                 {"_id": ObjectId(id)},

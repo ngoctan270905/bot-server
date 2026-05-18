@@ -75,7 +75,7 @@ class Settings(BaseSettings):
     API_V1_STR: str = Field("/api/v1", alias="API_V1_STR")
     ENVIRONMENT: str = Field("development", alias="ENVIRONMENT")
 
-    # CORS Origins - Có thể cấu hình qua .env: BACKEND_CORS_ORIGINS="http://localhost:3000,https://myapp.com"
+    # CORS Origins
     BACKEND_CORS_ORIGINS: list[str] = Field(
         ["http://localhost:5173", "http://localhost:3000"],
         alias="BACKEND_CORS_ORIGINS"
@@ -89,6 +89,7 @@ class Settings(BaseSettings):
         elif isinstance(v, (list, str)):
             return v
         raise ValueError(v)
+
     PORT: int = Field(3041, alias="PORT")
     HOST: str = Field("0.0.0.0", alias="HOST")
     DOMAIN_URL: str = Field("http://localhost:3041", alias="DOMAIN_URL")
@@ -145,4 +146,5 @@ class Settings(BaseSettings):
     MAX_UPLOAD_SIZE_MB: int = 5
     ALLOWED_IMAGE_TYPES: set[str] = {"image/jpeg", "image/png", "image/webp", "image/gif"}
     ALLOWED_EXTENSIONS: set[str] = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+
 settings = Settings()
