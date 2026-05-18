@@ -76,8 +76,9 @@ class AuthService:
         await self._user_repo.update_tokens(new_user["_id"], access_token, refresh_token)
 
         return {
-            "token": access_token,
-            "refreshToken": refresh_token
+            "access_token": access_token,
+            "token_type": "bearer",
+            "refresh_token": refresh_token
         }
 
     async def login_email_password(self, email: str, password: str) -> dict:
@@ -111,8 +112,9 @@ class AuthService:
         await self._user_repo.update_tokens(user["_id"], access_token, refresh_token)
 
         return {
-            "token": access_token,
-            "refreshToken": refresh_token
+            "access_token": access_token,
+            "token_type": "bearer",
+            "refresh_token": refresh_token
         }
 
     async def logout(self, user_id: str) -> None:
