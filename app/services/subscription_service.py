@@ -1,17 +1,5 @@
 from typing import List, Optional
-from pydantic import BaseModel
-
-class TokenSubscriptionService(BaseModel):
-    tokens_per_bot_per_month: int
-    characters_per_bot: int
-    team_members: int
-
-class TokenSubscription(BaseModel):
-    id: str
-    name: str
-    description: str
-    is_free: bool = False
-    services: TokenSubscriptionService
+from app.schemas.subscription import TokenSubscription, TokenSubscriptionService
 
 DEFAULT_SUBSCRIPTION = TokenSubscription(
     id="package_starter",
