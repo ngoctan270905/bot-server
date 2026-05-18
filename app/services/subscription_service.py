@@ -1,6 +1,28 @@
-from typing import List, Optional
-from app.schemas.subscription import TokenSubscription, TokenSubscriptionService
+"""
+Quản lý dữ liệu subscription/token package của hệ thống.
 
+Bao gồm:
+- Gói mặc định miễn phí
+- Danh sách các gói subscription
+- Hàm lấy thông tin subscription theo ID
+"""
+
+from typing import List, Optional
+
+from app.schemas.subscription import (
+    TokenSubscription,
+    TokenSubscriptionService
+)
+
+
+"""
+Gói subscription mặc định của hệ thống.
+
+Được sử dụng khi:
+- Project chưa có subscription
+- Subscription ID không tồn tại
+- Không truyền subscription ID
+"""
 DEFAULT_SUBSCRIPTION = TokenSubscription(
     id="package_starter",
     name="Starter",
@@ -13,6 +35,10 @@ DEFAULT_SUBSCRIPTION = TokenSubscription(
     )
 )
 
+
+"""
+Danh sách các gói subscription trả phí của hệ thống.
+"""
 TOKEN_SUBSCRIPTIONS = [
     TokenSubscription(
         id="package_basic",
@@ -56,12 +82,34 @@ TOKEN_SUBSCRIPTIONS = [
     )
 ]
 
-def get_subscription_by_id(subscription_id: Optional[str] = None) -> TokenSubscription:
+
+def get_subscription_by_id(
+    subscription_id: Optional[str] = None
+) -> TokenSubscription:
+    """
+    Lấy thông tin subscription theo ID.
+
+    Args:
+        subscription_id:
+            ID của gói subscription.
+
+    Returns:
+        TokenSubscription:
+            Thông tin subscription tương ứng.
+
+    Notes:
+        - Nếu không truyền subscription_id,
+          trả về gói mặc định.
+        - Nếu không tìm thấy subscription,
+          trả về gói mặc định.
+    """
+
     if not subscription_id:
         return DEFAULT_SUBSCRIPTION
-    
-    for sub in TOKEN_SUBSCRIPTIONS:
-        if sub.id == subscription_id:
-            return sub
-            
+
+    for subscription in TOKEN_SUBSCRIPTIONS:
+
+        if subscription.id == subscription_id:
+            return subscription
+
     return DEFAULT_SUBSCRIPTION

@@ -6,14 +6,13 @@ from typing import List
 from app.repositories.bot_repository import BotRepository
 from app.repositories.member_repository import MemberRepository
 from app.schemas.bot import (
-    BotCreate, 
-    BotUpdate, 
-    BotDetailResponse, 
-    BotListAll, 
-    BotPublicResponse, 
+    BotCreate,
+    BotUpdate,
+    BotDetailResponse,
+    BotListAll,
+    BotPublicResponse,
     SkKeyResponse
 )
-from app.schemas.base import UnifiedResponse
 from app.core.exceptions import NotFoundException, ForbiddenException
 
 def generate_sk_key(length: int = 32) -> str:
@@ -111,7 +110,7 @@ class BotService:
             settings_update["temperature"] = update_data.pop("temperature")
         if "instructions" in update_data:
             settings_update["instructions"] = update_data.pop("instructions")
-        
+
         if settings_update:
             current_settings = bot.get("settings", {})
             if not isinstance(current_settings, dict):
