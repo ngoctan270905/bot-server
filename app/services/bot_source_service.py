@@ -6,8 +6,8 @@ from app.repositories.project_repository import ProjectRepository
 from app.repositories.training_history_repository import TrainingHistoryRepository
 from app.repositories.member_repository import MemberRepository
 from app.schemas.source import (
-    SourceUpsertRequest, 
-    SourceResponse, 
+    SourceUpsertRequest,
+    SourceResponse,
     TrainingHistoryResponse,
     DataSourceType,
     TrainingStatus
@@ -44,12 +44,17 @@ class BotSourceService:
             raise ForbiddenException(detail="You do not have permission to view this bot's sources")
 
         sources = await self._source_repo.get_by_bot(bot_id)
-        return [SourceResponse.model_validate(s) for s in sources]
+        response_sources = []
+
+        for source in sources:
+          validated_source = SourceResponse.model_validate(source)
+          response_sources.append(validated_source)
+
+        return response_sources
 
     async def upsert_sources(self, user_id: str, request: SourceUpsertRequest):
         """
         Cập nhật hoặc thêm mới các nguồn dữ liệu cho bot.
-        Giống logic putSourcesUpsertService trong Node.js.
         """
         bot_id = request.bot_id
         bot = await self._bot_repo.get_by_id(bot_id)
@@ -68,8 +73,15 @@ class BotSourceService:
 
         # Tính toán số ký tự hiện tại và mới
         existing_sources = await self._source_repo.get_by_ids(request.existing_source_ids)
-        current_chars = sum(s.get("numberOfCharacters", 0) for s in existing_sources)
-        
+        current_characters = 0
+
+        for source in existing_sources:
+          number_of_characters = source.get(
+            "numberOfCharacters",
+            0
+          )
+          current_characters = current_characters + number_of_characters
+
         new_chars = 0
         new_sources_data = []
 
@@ -141,7 +153,7 @@ class BotSourceService:
                 "trainingStatus": TrainingStatus.TRAINING
             })
 
-        total_chars = current_chars + new_chars
+        total_chars = current_characters + new_chars
         if total_chars > char_limit:
             raise BadRequestException(
                 detail=f"Total characters exceed the limit. Total: {total_chars}, Limit: {char_limit}."
@@ -156,8 +168,17 @@ class BotSourceService:
             created_sources.append(s)
 
         # IDs cần train = IDs cũ giữ lại + IDs mới tạo
-        sources_to_train_ids = request.existing_source_ids + [str(s["_id"]) for s in created_sources]
-        
+        sources_to_train_ids = []
+
+        # Thêm source cũ
+        for existing_id in request.existing_source_ids:
+          sources_to_train_ids.append(existing_id)
+
+        # Thêm source mới
+        for source in created_sources:
+          source_id = str(source["_id"])
+          sources_to_train_ids.append(source_id)
+
         # Đẩy vào Queue Training
         await self._enqueue_training_job(bot_id, sources_to_train_ids)
 
@@ -189,7 +210,7 @@ class BotSourceService:
 
         sources = await self._source_repo.get_by_bot(bot_id)
         source_ids = [str(s["_id"]) for s in sources]
-        
+
         if not source_ids:
             raise BadRequestException(detail="No sources to train")
 

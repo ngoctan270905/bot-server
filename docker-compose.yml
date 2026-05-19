@@ -23,16 +23,16 @@ services:
     networks:
       - travel-bot-network
 
-  # Qdrant - Vector Database cho AI RAG
-  qdrant:
-    image: qdrant/qdrant:latest
-    container_name: travel-bot-qdrant
-    ports:
-      - "6333:6333"
-    volumes:
-      - qdrant_data:/qdrant/storage
-    networks:
-      - travel-bot-network
+#  # Qdrant - Vector Database cho AI RAG
+#  qdrant:
+#    image: qdrant/qdrant:latest
+#    container_name: travel-bot-qdrant
+#    ports:
+#      - "6333:6333"
+#    volumes:
+#      - qdrant_data:/qdrant/storage
+#    networks:
+#      - travel-bot-network
 
 networks:
   travel-bot-network:

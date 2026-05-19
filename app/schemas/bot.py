@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, ConfigDict, BeforeValidator
 from pydantic.alias_generators import to_camel
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Optional
 
 PyObjectId = Annotated[str, BeforeValidator(str)]
 
@@ -34,6 +34,10 @@ class BotUpdate(BaseModel):
     model: str | None = Field(None)
     settings: BotSettingSchema | None = Field(None)
     sk_key: str | None = Field(None)
+    temperature: float | None = Field(None)
+    instructions: str | None = Field(None)
+    is_public: bool | None = Field(None)
+    leads_settings: Optional[dict] = Field(None)
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 class BotUpdateResponse(BaseModel):

@@ -36,7 +36,13 @@ class BotService:
             raise ForbiddenException(detail="You are not a member of this project")
 
         bots = await self._bot_repo.get_by_project(project_id)
-        return [BotListAll.model_validate(b) for b in bots]
+        response_bots = []
+
+        for bot in bots:
+          validated_bot = BotListAll.model_validate(bot)
+          response_bots.append(validated_bot)
+
+        return response_bots
 
     async def create_bot(self, user_id: str, bot_in: BotCreate) -> BotDetailResponse:
         """Tạo bot mới."""
@@ -91,12 +97,28 @@ class BotService:
         update_data = bot_in.model_dump(exclude_unset=True)
 
         if "leads_settings" in update_data:
-            ls = update_data["leads_settings"]
-            if ls and any([ls.get("email"), ls.get("phone"), ls.get("name"), ls.get("message")]):
-                if not ls.get("title"):
-                    update_data["leads_settings"]["title"] = "Let we know how to contact you"
+          leads_settings = update_data["leads_settings"]
+
+          if leads_settings is not None:
+            has_email = leads_settings.get("email")
+            has_phone = leads_settings.get("phone")
+            has_name = leads_settings.get("name")
+            has_message = leads_settings.get("message")
+
+            has_any_contact_field = (
+              has_email or has_phone or has_name or has_message
+            )
+            if has_any_contact_field:
+              has_title = leads_settings.get("title")
+
+              if not has_title:
+                update_data["leads_settings"]["title"] = (
+                  "Let we know how to contact you"
+                )
             else:
-                update_data["leads_settings"] = None
+              update_data["leads_settings"] = None
+          else:
+            update_data["leads_settings"] = None
 
         if "is_public" in update_data:
             is_public = update_data.pop("is_public")
@@ -133,7 +155,7 @@ class BotService:
 
         new_key = generate_sk_key()
         await self._bot_repo.update(bot_id, {"skKey": new_key})
-        return SkKeyResponse(sk_key=new_key)
+        return SkKeyResponse.model_validate({"skKey": new_key})
 
     async def delete_bot(self, user_id: str, bot_id: str) -> None:
         """Xóa bot."""

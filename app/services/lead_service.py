@@ -21,10 +21,10 @@ class LeadService:
         self._member_repo = member_repo
 
     async def get_bot_leads(
-        self, 
-        user_id: str, 
-        bot_id: str, 
-        from_date: Optional[datetime] = None, 
+        self,
+        user_id: str,
+        bot_id: str,
+        from_date: Optional[datetime] = None,
         to_date: Optional[datetime] = None
     ) -> List[LeadDetailResponse]:
         """Lấy danh sách leads của bot."""
@@ -40,7 +40,13 @@ class LeadService:
 
         # 3. Lấy dữ liệu
         leads = await self._leads_repo.get_leads_by_bot(bot_id, from_date, to_date)
-        return [LeadDetailResponse.model_validate(l) for l in leads]
+        response_leads = []
+
+        for lead in leads:
+          validated_lead = LeadDetailResponse.model_validate(lead)
+          response_leads.append(validated_lead)
+
+        return response_leads
 
     async def create_lead(self, bot_id: str, lead_in: LeadCreate) -> LeadDetailResponse:
         """
@@ -91,7 +97,7 @@ class LeadService:
                         "botId": str(bot["_id"])
                     }
                 }
-                
+
                 # Đẩy vào Redis Stream
                 stream_name = "WEBHOOK_SEND_EVENT_STREAM"
                 await redis_manager.client.xadd(
