@@ -14,8 +14,7 @@ from app.schemas.source import (
 )
 from app.services.subscription_service import get_subscription_by_id
 from app.core.exceptions import NotFoundException, ForbiddenException, BadRequestException
-from app.db.redis import redis_manager
-from arq import create_pool
+from app.db.redis import redis_manager, get_arq_pool
 from app.core.config import settings
 
 class BotSourceService:
@@ -233,9 +232,9 @@ class BotSourceService:
     async def _enqueue_training_job(self, bot_id: str, source_ids: List[str]):
         """Đẩy job trainBot vào Arq."""
         try:
-            arq_pool = await create_pool(settings.redis.redis_arq)
+            # Sử dụng pool có sẵn từ app.state (thông qua helper)
+            arq_pool = get_arq_pool()
             await arq_pool.enqueue_job('train_bot_task', bot_id, source_ids)
-            await arq_pool.close()
         except Exception as e:
             from loguru import logger
             logger.error(f"Failed to enqueue train_bot_task: {e}")

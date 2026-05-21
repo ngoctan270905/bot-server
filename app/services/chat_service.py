@@ -1,4 +1,9 @@
 import uuid
+
+from loguru import logger
+
+from app.db.redis import get_arq_pool
+import asyncio
 from datetime import datetime, timezone
 from typing import Optional, List
 
@@ -13,7 +18,7 @@ from app.schemas.chat import (
     ConversationUpdate
 )
 from app.core.exceptions import NotFoundException, ForbiddenException
-from app.services.ai_engine import ai_engine
+from app.services.ai.engine import ai_engine
 from app.db.redis import redis_manager
 from app.core.config import settings
 
@@ -106,25 +111,13 @@ class ChatService:
         return str(conversation["_id"])
 
     async def save_message(self, conversation_id: str, bot_id: str, content: str, role: str):
-        """Đẩy task lưu tin nhắn vào hàng đợi arq."""
-        try:
-            # Kiểm tra client thay vì pool (theo định nghĩa trong db/redis.py)
-            if redis_manager.client:
-                from arq import create_pool
-                from arq.connections import RedisSettings
-
-                # TODO: Nên cache arq_pool này ở class level hoặc dependency thay vì tạo mới mỗi lần
-                arq_pool = await create_pool(RedisSettings(
-                    host=settings.redis.host,
-                    port=settings.redis.port,
-                    password=settings.redis.password,
-                    database=settings.redis.db
-                ))
-                await arq_pool.enqueue_job('save_chat_history_task', conversation_id, bot_id, content, role)
-                await arq_pool.close()
-        except Exception as e:
-            import loguru
-            loguru.logger.error(f"Failed to enqueue save_message task: {e}")
+      try:
+        arq_pool = get_arq_pool()
+        asyncio.create_task(
+          arq_pool.enqueue_job('save_chat_history_task', conversation_id, bot_id, content, role)
+        )
+      except Exception as e:
+        logger.error(f"Failed to enqueue save_message task: {e}")
 
     async def get_ai_response(self, bot_id: str, message: str, conversation_id: str) -> str:
         """
@@ -137,8 +130,8 @@ class ChatService:
 
         # 1. Gọi AI Engine lấy phản hồi
         ai_text = await ai_engine.ask(
-            bot_id=bot_id, 
-            question=message, 
+            bot_id=bot_id,
+            question=message,
             conversation_id=conversation_id,
             bot_instructions=bot_instructions
         )
@@ -148,19 +141,11 @@ class ChatService:
 
         # 3. Enqueue job cập nhật token usage
         try:
-            if redis_manager.client:
-                from arq import create_pool
-                from arq.connections import RedisSettings
-                arq_pool = await create_pool(RedisSettings(
-                    host=settings.redis.host,
-                    port=settings.redis.port,
-                    password=settings.redis.password,
-                    database=settings.redis.db
-                ))
-                await arq_pool.enqueue_job('update_bot_token_usage_task', bot_id, token_count)
-                await arq_pool.close()
+          arq_pool = get_arq_pool()
+          asyncio.create_task(
+            arq_pool.enqueue_job('update_bot_token_usage_task', bot_id, token_count)
+          )
         except Exception as e:
-            import loguru
-            loguru.logger.error(f"Failed to enqueue update_token task: {e}")
+          logger.error(f"Failed to enqueue update_token task: {e}")
 
         return ai_text

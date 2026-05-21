@@ -3,7 +3,7 @@ import os
 from datetime import datetime, timezone
 from typing import List
 from app.db.mongodb import get_database
-from app.services.ai_engine import ai_engine
+from app.services.ai.engine import ai_engine
 from app.helper.document_processor import document_processor
 from langchain_core.documents import Document
 from langchain_community.vectorstores import Redis as RedisVectorStore
@@ -89,6 +89,9 @@ async def train_bot_task(ctx, bot_id: str, source_ids: List[str]):
             index_name=bot_id,
             redis_url=ai_engine.redis_url
         )
+
+        # Invalidate cache trong AI Engine để lần hỏi tiếp theo sẽ load dữ liệu mới
+        ai_engine.invalidate_vs_cache(bot_id)
 
         # 5. Cập nhật trạng thái Done và lưu History vào MongoDB
         await db["BotDataSource"].update_many(
