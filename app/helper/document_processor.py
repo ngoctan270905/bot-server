@@ -18,7 +18,7 @@ class DocumentProcessor:
           Bộ chia văn bản thành nhiều đoạn nhỏ.
   """
 
-  def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 100):
+  def __init__(self, chunk_size: int = 500, chunk_overlap: int = 50):
     """
     Khởi tạo DocumentProcessor với cấu hình chunking.
 
@@ -96,5 +96,15 @@ class DocumentProcessor:
 
       logger.error(f"Error loading file {file_path}: {e}")
       return []
+
+  @staticmethod
+  async def count_characters(file_path: str) -> int:
+    """
+    Đếm tổng số ký tự trong file (PDF, Word, Text).
+    """
+    docs = await DocumentProcessor.load_file(file_path)
+    if not docs:
+      return 0
+    return sum(len(doc.page_content) for doc in docs)
 
 document_processor = DocumentProcessor()

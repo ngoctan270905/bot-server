@@ -33,6 +33,7 @@ from app.services.chat_service import ChatService
 from app.services.bot_analytics_service import BotAnalyticsService
 from app.services.lead_service import LeadService
 from app.services.bot_source_service import BotSourceService
+from app.services.resource_service import ResourceService
 
 # Schemas
 from app.schemas.user import UserDetailResponse
@@ -192,6 +193,10 @@ async def get_bot_source_service(
         training_repo=training_repo,
         member_repo=member_repo
     )
+
+async def get_resource_service() -> ResourceService:
+    """Dependency cung cấp ResourceService."""
+    return ResourceService()
 
 # --- Auth Dependencies ---
 

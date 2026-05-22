@@ -3,6 +3,7 @@ from app.core.config import settings
 from app.db.mongodb import connect_to_mongo, close_mongo_connection
 from loguru import logger
 from app.tasks.chat_tasks import save_chat_history_task, update_bot_token_usage_task
+from app.tasks.training_tasks import train_bot_task
 
 
 async def on_startup(ctx):
@@ -28,7 +29,7 @@ class WorkerSettings:
     """
 
     # Danh sách các hàm xử lý task
-    functions = [save_chat_history_task, update_bot_token_usage_task]
+    functions = [save_chat_history_task, update_bot_token_usage_task, train_bot_task]
     # Cấu hình kết nối Redis lấy từ settings
     redis_settings = RedisSettings(
         host=settings.redis.host,
