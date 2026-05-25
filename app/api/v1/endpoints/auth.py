@@ -78,7 +78,7 @@ async def forgot_password(
     """
     return await auth_service.forgot_password(email)
 
-# Social Login (Placeholder for external logic)
+# Social Login
 @router.post("/login-facebook", response_model=Token)
 async def login_facebook(
     accessToken: str = Body(..., embed=True),
