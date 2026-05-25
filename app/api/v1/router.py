@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import health, auth, profiles, projects, bots, conversations, sources, resources, social
+from app.api.v1.endpoints import health, auth, profiles, projects, bots, conversations, sources, resources, social, telegram
 from app.ws import router as ws_router
 
 api_router = APIRouter()
@@ -14,4 +14,5 @@ api_router.include_router(conversations.router, prefix="/conversations", tags=["
 api_router.include_router(sources.router, prefix="/sources", tags=["Sources"])
 api_router.include_router(resources.router, prefix="/resources", tags=["Resources"])
 api_router.include_router(social.router, prefix="/social", tags=["Social"])
+api_router.include_router(telegram.router, prefix="/telegram", tags=["Telegram"])
 api_router.include_router(ws_router.router, tags=["WebSocket"])
