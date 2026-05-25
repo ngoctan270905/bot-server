@@ -41,8 +41,13 @@ async def lifespan(app: FastAPI):
         app.state.mongodb = mongo_manager.client
         app.state.redis = redis_manager
         app.state.arq_pool = redis_manager.arq_pool
+
+        # 4. Khởi chạy Telegram Worker ngầm
+        from app.services.telegram_worker import telegram_worker
+        import asyncio
+        asyncio.create_task(telegram_worker.run_worker())
         
-        logger.info("Tất cả các kết nối Database & AI Engine đã sẵn sàng.")
+        logger.info("Tất cả các kết nối Database & AI Engine đã sẵn sàng. Telegram Worker đã khởi chạy.")
     except Exception as e:
         logger.critical(f"Lỗi khởi động hệ thống: {e}")
         raise
