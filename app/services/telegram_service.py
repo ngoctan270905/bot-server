@@ -1,13 +1,12 @@
+from app.repositories.social_repository import SocialPageRepository
 import httpx
 from fastapi import HTTPException, status
 from loguru import logger
 from app.core.config import settings
-from app.repositories.social_repository import SocialPageRepository
-from app.db.mongodb import mongo_manager
 
 class TelegramService:
-    def __init__(self):
-        self.social_repo = SocialPageRepository(mongo_manager.db["SocialPage"])
+    def __init__(self, social_repo: SocialPageRepository):
+        self.social_repo = social_repo
         self.base_url = "https://api.telegram.org/bot"
 
     async def get_bot_info(self, bot_token: str) -> dict:
@@ -71,5 +70,3 @@ class TelegramService:
             "username": bot_info.get("username"),
             "channel": "telegram"
         }
-
-telegram_service = TelegramService()

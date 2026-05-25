@@ -2,7 +2,6 @@ import json
 import httpx
 from loguru import logger
 from app.core.config import settings
-from app.db.mongodb import mongo_manager
 from app.db.redis import redis_manager
 from app.repositories.social_repository import SocialPageRepository
 from app.repositories.customer_repository import CustomerRepository
@@ -11,10 +10,15 @@ from app.services.ai.engine import ai_engine
 from app.schemas.telegram import TelegramUpdate
 
 class TelegramWorker:
-    def __init__(self):
-        self.social_repo = SocialPageRepository(mongo_manager.db["SocialPage"])
-        self.customer_repo = CustomerRepository(mongo_manager.db["Customer"])
-        self.conversation_repo = ConversationRepository(mongo_manager.db["Conversation"])
+    def __init__(
+        self, 
+        social_repo: SocialPageRepository,
+        customer_repo: CustomerRepository,
+        conversation_repo: ConversationRepository
+    ):
+        self.social_repo = social_repo
+        self.customer_repo = customer_repo
+        self.conversation_repo = conversation_repo
         self.base_url = "https://api.telegram.org/bot"
 
     async def send_message(self, bot_token: str, chat_id: int, text: str):
@@ -116,9 +120,8 @@ class TelegramWorker:
         while True:
             try:
                 # Đọc tin nhắn từ Stream
-                # block=0 nghĩa là đợi vô tận cho đến khi có tin nhắn mới
                 streams = await redis_manager.client.xreadgroup(
-                    group_name, consumer_name, {stream_name: ">"}, count=1, block=5000
+                    group_name, consumer_name, {stream_name: ">"}, count=1, block=2000
                 )
 
                 if not streams:
@@ -139,5 +142,3 @@ class TelegramWorker:
                 logger.error(f"Telegram Worker loop error: {e}")
                 import asyncio
                 await asyncio.sleep(5)
-
-telegram_worker = TelegramWorker()

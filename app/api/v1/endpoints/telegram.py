@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, status, Header, HTTPException, Request
 from app.schemas.telegram import TelegramConnectRequest, TelegramUpdate
-from app.services.telegram_service import telegram_service
+from app.services.telegram_service import TelegramService
+from app.api.v1.dependencies import get_telegram_service
 from app.schemas.base import UnifiedResponse
 from app.core.config import settings
 from app.db.redis import redis_manager
@@ -9,7 +10,10 @@ import json
 router = APIRouter()
 
 @router.post("/connect", status_code=status.HTTP_200_OK, response_model=UnifiedResponse)
-async def connect_telegram(request_data: TelegramConnectRequest):
+async def connect_telegram(
+    request_data: TelegramConnectRequest,
+    telegram_service: TelegramService = Depends(get_telegram_service)
+):
     """
     Kết nối Telegram Bot vào hệ thống và thiết lập Webhook.
     """
@@ -40,10 +44,8 @@ async def telegram_webhook(
         )
 
     # 2. Đẩy vào Redis Stream
-    # Lưu ý: Chúng ta dùng Redis Stream 'TELEGRAM_MESSAGE_STREAM' giống như bản Nodejs
     stream_name = "TELEGRAM_MESSAGE_STREAM"
     
-    # Chuẩn bị dữ liệu để push vào Stream (phải là dict dạng {key: value})
     event_data = {
         "telebotId": tele_id,
         "payload": update.model_dump_json(by_alias=True)

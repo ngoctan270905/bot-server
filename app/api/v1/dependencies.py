@@ -103,7 +103,15 @@ async def get_training_history_repository(db = Depends(get_database)) -> Trainin
     """Dependency cung cấp TrainingHistoryRepository."""
     return TrainingHistoryRepository(collection=db["TrainingHistory"])
 
+from app.services.telegram_service import TelegramService
+
 # --- Service Dependencies ---
+
+async def get_telegram_service(
+    social_repo: SocialPageRepository = Depends(get_social_repository)
+) -> TelegramService:
+    """Dependency cung cấp TelegramService."""
+    return TelegramService(social_repo=social_repo)
 
 async def get_social_service(
     social_repo: SocialPageRepository = Depends(get_social_repository)
