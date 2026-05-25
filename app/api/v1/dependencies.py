@@ -23,6 +23,7 @@ from app.repositories.leads_repository import LeadsRepository
 from app.repositories.chat_analytics_repository import ChatAnalyticsRepository
 from app.repositories.bot_source_repository import BotDataSourceRepository
 from app.repositories.training_history_repository import TrainingHistoryRepository
+from app.repositories.social_repository import SocialPageRepository
 
 # Services
 from app.services.auth_service import AuthService
@@ -34,6 +35,7 @@ from app.services.bot_analytics_service import BotAnalyticsService
 from app.services.lead_service import LeadService
 from app.services.bot_source_service import BotSourceService
 from app.services.resource_service import ResourceService
+from app.services.social_service import SocialService
 
 # Schemas
 from app.schemas.user import UserDetailResponse
@@ -44,6 +46,10 @@ oauth2_scheme = OAuth2PasswordBearer(
 )
 
 # --- Repository Dependencies ---
+
+async def get_social_repository(db = Depends(get_database)) -> SocialPageRepository:
+    """Dependency cung cấp SocialPageRepository."""
+    return SocialPageRepository(collection=db["SocialPage"])
 
 async def get_user_repository(db = Depends(get_database)) -> UserRepository:
     """Dependency cung cấp UserRepository."""
@@ -98,6 +104,12 @@ async def get_training_history_repository(db = Depends(get_database)) -> Trainin
     return TrainingHistoryRepository(collection=db["TrainingHistory"])
 
 # --- Service Dependencies ---
+
+async def get_social_service(
+    social_repo: SocialPageRepository = Depends(get_social_repository)
+) -> SocialService:
+    """Dependency cung cấp SocialService."""
+    return SocialService(social_repo=social_repo)
 
 async def get_auth_service(
     user_repo: UserRepository = Depends(get_user_repository),

@@ -1,12 +1,13 @@
-from typing import Optional
-from pydantic import Field, field_validator
+from typing import Optional, List
+from pydantic import Field, field_validator, BaseModel, ConfigDict
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-class RedisSettings(BaseSettings):
+class RedisSettings(BaseModel):
     host: str = Field("localhost", alias="REDIS_HOST")
     port: int = Field(6379, alias="REDIS_PORT")
     password: Optional[str] = Field(None, alias="REDIS_PASSWORD")
     db: int = Field(0, alias="REDIS_DB")
+    model_config = ConfigDict(populate_by_name=True)
 
     @property
     def redis_arq(self):
@@ -24,7 +25,7 @@ class RedisSettings(BaseSettings):
             return f"redis://:{self.password}@{self.host}:{self.port}/{self.db}"
         return f"redis://{self.host}:{self.port}/{self.db}"
 
-class AISettings(BaseSettings):
+class AISettings(BaseModel):
     gemini_key: Optional[str] = Field(None, alias="GGG_AI_API_KEY")
     openai_key: Optional[str] = Field(None, alias="OPENAI_API_KEY")
     jina_key: Optional[str] = Field(None, alias="JINA_API_KEY")
@@ -46,8 +47,9 @@ class AISettings(BaseSettings):
     gemini_model: str = Field("gemini-1.5-flash", alias="GEMINI_MODEL")
     gemini_timeout: float = Field(30.0, alias="GEMINI_TIMEOUT")
     gemini_max_history: int = Field(20, alias="GEMINI_MAX_HISTORY")
+    model_config = ConfigDict(populate_by_name=True)
 
-class SocialSettings(BaseSettings):
+class SocialSettings(BaseModel):
     # Facebook
     fb_app_id: Optional[str] = Field(None, alias="FACEBOOK_APP_ID")
     fb_redirect_uri: Optional[str] = Field(None, alias="FACEBOOK_REDIRECT_URI")
@@ -61,13 +63,15 @@ class SocialSettings(BaseSettings):
 
     # Telegram
     tele_secret_token: Optional[str] = Field(None, alias="TELEGRAM_WEBHOOK_SECRET_TOKEN")
+    model_config = ConfigDict(populate_by_name=True)
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
-        case_sensitive=True
+        case_sensitive=True,
+        populate_by_name=True
     )
 
     # --- Application ---
@@ -111,7 +115,19 @@ class Settings(BaseSettings):
     MONGODB_RETRY_DELAY: int = Field(2, alias="MONGODB_RETRY_DELAY")
 
     # --- Redis ---
-    redis: RedisSettings = RedisSettings()
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_PASSWORD: Optional[str] = None
+    REDIS_DB: int = 0
+
+    @property
+    def redis(self) -> RedisSettings:
+        return RedisSettings(
+            host=self.REDIS_HOST,
+            port=self.REDIS_PORT,
+            password=self.REDIS_PASSWORD,
+            db=self.REDIS_DB
+        )
 
     # --- Security ---
     SECRET_KEY: str = Field(..., alias="JWT_SECRET")
@@ -123,10 +139,64 @@ class Settings(BaseSettings):
     HASH_PEPPER: str = Field("pepper", alias="HASH_PEPPER")
 
     # --- AI ---
-    ai: AISettings = AISettings()
+    GGG_AI_API_KEY: Optional[str] = None
+    OPENAI_API_KEY: Optional[str] = None
+    JINA_API_KEY: Optional[str] = None
+    COHERE_API_KEY: Optional[str] = None
+    EMBEDDING_URL: str = "http://localhost:8081/v1/embeddings"
+    EMBEDDING_MODEL: str = "bge-m3"
+    RERANKER_URL: str = "http://localhost:8082/v1/rerank"
+    RERANKER_MODEL: str = "bge-reranker-v2-m3"
+    LLM_URL: str = "http://localhost:8080/v1/chat/completions"
+    LLM_MODEL: str = "gemma-3-1b-it"
+    QDRANT_URL: str = "http://localhost:6333"
+    QDRANT_COLLECTION: str = "bot_collection"
+    GEMINI_MODEL: str = "gemini-1.5-flash"
+    GEMINI_TIMEOUT: float = 30.0
+    GEMINI_MAX_HISTORY: int = 20
+
+    @property
+    def ai(self) -> AISettings:
+        return AISettings(
+            gemini_key=self.GGG_AI_API_KEY,
+            openai_key=self.OPENAI_API_KEY,
+            jina_key=self.JINA_API_KEY,
+            cohere_key=self.COHERE_API_KEY,
+            embedding_url=self.EMBEDDING_URL,
+            embedding_model=self.EMBEDDING_MODEL,
+            reranker_url=self.RERANKER_URL,
+            reranker_model=self.RERANKER_MODEL,
+            llm_url=self.LLM_URL,
+            llm_model=self.LLM_MODEL,
+            qdrant_url=self.QDRANT_URL,
+            qdrant_collection=self.QDRANT_COLLECTION,
+            gemini_model=self.GEMINI_MODEL,
+            gemini_timeout=self.GEMINI_TIMEOUT,
+            gemini_max_history=self.GEMINI_MAX_HISTORY
+        )
 
     # --- Social ---
-    social: SocialSettings = SocialSettings()
+    FACEBOOK_APP_ID: Optional[str] = None
+    FACEBOOK_REDIRECT_URI: Optional[str] = None
+    FACEBOOK_APP_SECRET: Optional[str] = None
+    FACEBOOK_WEBHOOK_VERIFY_TOKEN: Optional[str] = None
+    ZALO_APP_ID: Optional[str] = None
+    ZALO_REDIRECT_URI: Optional[str] = None
+    ZALO_APP_SECRET: Optional[str] = None
+    TELEGRAM_WEBHOOK_SECRET_TOKEN: Optional[str] = None
+
+    @property
+    def social(self) -> SocialSettings:
+        return SocialSettings(
+            fb_app_id=self.FACEBOOK_APP_ID,
+            fb_redirect_uri=self.FACEBOOK_REDIRECT_URI,
+            fb_app_secret=self.FACEBOOK_APP_SECRET,
+            fb_verify_token=self.FACEBOOK_WEBHOOK_VERIFY_TOKEN,
+            zalo_app_id=self.ZALO_APP_ID,
+            zalo_redirect_uri=self.ZALO_REDIRECT_URI,
+            zalo_app_secret=self.ZALO_APP_SECRET,
+            tele_secret_token=self.TELEGRAM_WEBHOOK_SECRET_TOKEN
+        )
 
     # --- Third Party ---
     STRIPE_SECRET_KEY: Optional[str] = Field(None, alias="STRIPE_SECRET_KEY")
