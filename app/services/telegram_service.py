@@ -1,8 +1,8 @@
 import httpx
-from fastapi import HTTPException, status
 from loguru import logger
 from app.core.config import settings
 from app.repositories.social_repository import SocialPageRepository
+from app.core.exceptions import BadRequestException, InternalServerException
 
 class TelegramService:
     def __init__(self, social_repo: SocialPageRepository):
@@ -14,14 +14,14 @@ class TelegramService:
             response = await client.get(f"{self.base_url}{bot_token}/getMe")
             if response.status_code != 200:
                 logger.error(f"Failed to get Telegram bot info: {response.text}")
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
+                raise BadRequestException(
                     detail="Token không hợp lệ hoặc không thể kết nối tới Telegram"
                 )
             return response.json()["result"]
 
     async def set_webhook(self, bot_token: str, tele_id: int) -> bool:
-        webhook_url = f"{settings.DOMAIN_URL}{settings.API_V1_STR}/telegram/webhook/{tele_id}"
+        # URL Webhook giống bản Node: /webhook/telegram/{id} (không có /api/v1)
+        webhook_url = f"{settings.DOMAIN_URL}/webhook/telegram/{tele_id}"
         secret_token = settings.social.tele_secret_token
         
         async with httpx.AsyncClient() as client:
@@ -39,20 +39,16 @@ class TelegramService:
             return True
 
     async def connect_bot(self, bot_id: str, bot_token: str):
-        # 1. Lấy thông tin Bot từ Telegram
         bot_info = await self.get_bot_info(bot_token)
         tele_id = bot_info["id"]
         name = " ".join(filter(None, [bot_info.get("first_name"), bot_info.get("last_name")]))
 
-        # 2. Thiết lập Webhook
         webhook_success = await self.set_webhook(bot_token, tele_id)
         if not webhook_success:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            raise InternalServerException(
                 detail="Không thể thiết lập Webhook với Telegram"
             )
 
-        # 3. Lưu vào database
         social_data = {
             "pageId": str(tele_id),
             "botId": bot_id,
@@ -65,9 +61,22 @@ class TelegramService:
         
         await self.social_repo.update_by_page_id(str(tele_id), social_data)
         
-        # 4. Lấy lại bản ghi đầy đủ để trả về
         saved_page = await self.social_repo.get_by_page_id(str(tele_id))
         if saved_page and "_id" in saved_page:
             saved_page["_id"] = str(saved_page["_id"])
             
         return saved_page
+
+    async def send_message(self, bot_token: str, chat_id: int, text: str):
+        """Gửi tin nhắn phản hồi tới Telegram."""
+        async with httpx.AsyncClient() as client:
+            payload = {
+                "chat_id": chat_id,
+                "text": text
+            }
+            response = await client.post(
+                f"{self.base_url}{bot_token}/sendMessage",
+                json=payload
+            )
+            if response.status_code != 200:
+                logger.error(f"Failed to send Telegram message: {response.text}")

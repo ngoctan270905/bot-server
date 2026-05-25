@@ -18,6 +18,7 @@ from app.services.ai.engine import ai_engine
 from app.middlewares.request_id import RequestIDMiddleware
 from app.middlewares.logging import LoggingMiddleware
 from app.api.v1.router import api_router
+from app.webhooks import telegram as telegram_webhook
 from starlette.staticfiles import StaticFiles
 from pathlib import Path
 
@@ -42,22 +43,12 @@ async def lifespan(app: FastAPI):
         app.state.redis = redis_manager
         app.state.arq_pool = redis_manager.arq_pool
 
-        # 4. Khởi chạy Telegram Worker ngầm
-        from app.services.telegram_worker import TelegramWorker
-        from app.repositories.social_repository import SocialPageRepository
-        from app.repositories.customer_repository import CustomerRepository
-        from app.repositories.conversation_repository import ConversationRepository
+        # 4. Khởi chạy Stream Listener (Tương đương startListener trong Node)
+        from app.event_handlers.listener import start_listener
         import asyncio
-
-        db = mongo_manager.client[settings.DATABASE_NAME]
-        worker = TelegramWorker(
-            social_repo=SocialPageRepository(db["SocialPage"]),
-            customer_repo=CustomerRepository(db["Customer"]),
-            conversation_repo=ConversationRepository(db["Conversation"])
-        )
-        asyncio.create_task(worker.run_worker())
+        asyncio.create_task(start_listener())
         
-        logger.info("Tất cả các kết nối Database & AI Engine đã sẵn sàng. Telegram Worker đã khởi chạy.")
+        logger.info("Tất cả các kết nối Database & AI Engine đã sẵn sàng. Stream Listener đã khởi chạy.")
     except Exception as e:
         logger.critical(f"Lỗi khởi động hệ thống: {e}")
         raise
@@ -134,3 +125,4 @@ app.add_middleware(RequestIDMiddleware)
 
 # ---- Routers ----
 app.include_router(api_router, prefix=settings.API_V1_STR)
+app.include_router(telegram_webhook.router, prefix="/webhook", tags=["Webhooks"])
