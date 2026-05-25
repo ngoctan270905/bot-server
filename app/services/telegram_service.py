@@ -1,8 +1,8 @@
-from app.repositories.social_repository import SocialPageRepository
 import httpx
 from fastapi import HTTPException, status
 from loguru import logger
 from app.core.config import settings
+from app.repositories.social_repository import SocialPageRepository
 
 class TelegramService:
     def __init__(self, social_repo: SocialPageRepository):
@@ -59,14 +59,15 @@ class TelegramService:
             "channel": "telegram",
             "name": name,
             "pageAccessToken": bot_token,
-            "username": bot_info.get("username")
+            "username": bot_info.get("username"),
+            "active": True
         }
         
         await self.social_repo.update_by_page_id(str(tele_id), social_data)
         
-        return {
-            "pageId": str(tele_id),
-            "name": name,
-            "username": bot_info.get("username"),
-            "channel": "telegram"
-        }
+        # 4. Lấy lại bản ghi đầy đủ để trả về
+        saved_page = await self.social_repo.get_by_page_id(str(tele_id))
+        if saved_page and "_id" in saved_page:
+            saved_page["_id"] = str(saved_page["_id"])
+            
+        return saved_page

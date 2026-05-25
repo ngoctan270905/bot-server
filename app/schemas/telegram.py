@@ -1,8 +1,10 @@
 from pydantic import BaseModel, Field, ConfigDict
 
 class TelegramConnectRequest(BaseModel):
-    bot_token: str = Field(..., description="Telegram Bot Token từ BotFather")
-    bot_id: str = Field(..., description="ID của Bot trong hệ thống (Bot ObjectId)")
+    bot_token: str = Field(..., alias="botToken", description="Telegram Bot Token từ BotFather")
+    bot_id: str = Field(..., alias="botId", description="ID của Bot trong hệ thống (Bot ObjectId)")
+    
+    model_config = ConfigDict(populate_by_name=True)
 
 class TelegramBotInfo(BaseModel):
     id: int

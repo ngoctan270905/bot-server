@@ -185,3 +185,18 @@ async def trigger_bot_training(
     Kích hoạt huấn luyện Bot thủ công.
     """
     return await source_service.trigger_training(str(current_user.id), id)
+
+@router.get("/{id}/social-page", response_model=List[dict])
+async def get_bot_social_page(
+    id: str,
+    active: bool | None = Query(None),
+    channels: str | None = Query(None),
+    current_user: UserDetailResponse = Depends(get_current_user),
+    bot_service: BotService = Depends(get_bot_service)
+) -> Any:
+    """
+    Lấy danh sách các trang mạng xã hội đã kết nối của Bot.
+    """
+    return await bot_service.get_bot_social_pages(
+        str(current_user.id), id, active, channels
+    )

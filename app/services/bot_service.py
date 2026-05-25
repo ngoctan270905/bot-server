@@ -168,3 +168,37 @@ class BotService:
             raise ForbiddenException(detail="You are not a member of this project")
 
         await self._bot_repo.delete(bot_id)
+
+    async def get_bot_social_pages(
+        self, 
+        user_id: str, 
+        bot_id: str, 
+        active: bool | None = None, 
+        channels: str | None = None
+    ) -> List[dict]:
+        """
+        Lấy danh sách các trang mạng xã hội (Facebook, Telegram...) liên kết với Bot.
+        """
+        bot = await self._bot_repo.get_by_id(bot_id)
+        if not bot:
+            raise NotFoundException(detail="Bot not found")
+
+        is_member = await self._member_repo.is_member(user_id, bot["projectId"])
+        if not is_member:
+            raise ForbiddenException(detail="Bạn không có quyền truy cập Bot này")
+
+        query = {"botId": bot_id}
+        if active is not None:
+            query["active"] = active
+        if channels:
+            query["channel"] = {"$in": channels.split(",")}
+
+        from app.db.mongodb import mongo_manager
+        from app.core.config import settings
+        
+        cursor = mongo_manager.client[settings.DATABASE_NAME]["SocialPage"].find(query)
+        items = await cursor.to_list(length=100)
+        
+        for item in items:
+            item["_id"] = str(item["_id"])
+        return items
