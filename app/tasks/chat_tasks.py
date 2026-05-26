@@ -5,7 +5,6 @@ from loguru import logger
 async def save_chat_history_task(ctx, conversation_id: str, bot_id: str, content: str, role: str):
     """
     Task xử lý ngầm để lưu lịch sử chat vào MongoDB.
-    Đã loại bỏ logic sync analytics real-time để chuyển sang Cron Job 60p giống Node.js.
     """
     try:
         db = get_database()
@@ -27,13 +26,12 @@ async def save_chat_history_task(ctx, conversation_id: str, bot_id: str, content
 async def cron_sync_all_bots_analytics_task(ctx):
     """
     Task chạy định kỳ mỗi giờ (Cron) để tổng hợp Analytics cho tất cả các Bot.
-    Giống logic chatbot-analytics.ts trong Node.js.
     """
     try:
         db = get_database()
         logger.bind(context="Cron").info("Bắt đầu chạy Cron Job đồng bộ Analytics cho tất cả các Bot...")
         
-        # 1. Lấy danh sách tất cả các Bot (find() KHÔNG await trong pymongo async)
+        # 1. Lấy danh sách tất cả các Bot
         bots_cursor = db["BotInstance"].find({}, {"_id": 1})
         bots = [bot async for bot in bots_cursor]
         
@@ -54,7 +52,7 @@ async def sync_bot_analytics_internal(db, bot_id: str, date: datetime):
         start_of_day = date.replace(hour=0, minute=0, second=0, microsecond=0)
         end_of_day = start_of_day + timedelta(days=1)
 
-        # Thống kê Conversations theo Channel (aggregate() PHẢI await)
+        # Thống kê Conversations theo Channel
         conv_pipeline = [
             {
                 "$match": {
@@ -75,7 +73,7 @@ async def sync_bot_analytics_internal(db, bot_id: str, date: datetime):
         total_chat = sum(item["totalChat"] for item in conv_stats)
         chats_by_channel = [{"channel": item["_id"], "totalChat": item["totalChat"]} for item in conv_stats]
 
-        # Thống kê ChatHistory (Messages và Thumbs) (aggregate() PHẢI await)
+        # Thống kê ChatHistory (Messages và Thumbs)
         chat_pipeline = [
             {
                 "$match": {

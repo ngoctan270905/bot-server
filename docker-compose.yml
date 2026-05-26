@@ -4,38 +4,27 @@ services:
   # MongoDB - Database chính
   mongodb:
     image: mongo:latest
-    container_name: travel-bot-mongodb
+    container_name: bot-mongodb
     ports:
       - "27017:27017"
     volumes:
       - mongodb_data:/data/db
     networks:
-      - travel-bot-network
+      - bot-network
 
   # Redis - Dùng cho Task Queue (Arq) và Caching
   redis:
     image: redis:alpine
-    container_name: travel-bot-redis
+    container_name: bot-redis
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
-      - travel-bot-network
-
-#  # Qdrant - Vector Database cho AI RAG
-#  qdrant:
-#    image: qdrant/qdrant:latest
-#    container_name: travel-bot-qdrant
-#    ports:
-#      - "6333:6333"
-#    volumes:
-#      - qdrant_data:/qdrant/storage
-#    networks:
-#      - travel-bot-network
+      - bot-network
 
 networks:
-  travel-bot-network:
+  bot-network:
     driver: bridge
 
 volumes:
