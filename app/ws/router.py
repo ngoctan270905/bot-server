@@ -16,10 +16,8 @@ async def websocket_endpoint(
     token: Optional[str] = Query(None),
     chat_service: ChatService = Depends(get_chat_service)
 ):
-    # 1. Kiểm tra xác thực Token (Giống beforeHandle bên Node.js)
+    # 1. Kiểm tra xác thực Token
     if not token:
-        # Nếu dùng browser client, token thường truyền qua query ?token=...
-        # hoặc sec-websocket-protocol header. Ở đây ta ưu tiên query.
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
@@ -47,7 +45,7 @@ async def websocket_endpoint(
         while True:
             # Nhận dữ liệu nhị phân (Binary) từ client
             data = await websocket.receive_bytes()
-            # Giải mã MsgPack (tương đương decode của notepack.io)
+            # Giải mã MsgPack
             decoded_data = msgpack.unpackb(data, raw=False)
             await handle_message(socket_id, decoded_data, chat_service)
     except WebSocketDisconnect:

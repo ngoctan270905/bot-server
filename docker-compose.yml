@@ -14,7 +14,7 @@ services:
 
   # Redis - Dùng cho Task Queue (Arq) và Caching
   redis:
-    image: redis:alpine
+    image: redis/redis-stack:latest
     container_name: bot-redis
     ports:
       - "6379:6379"

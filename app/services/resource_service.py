@@ -10,7 +10,7 @@ from app.core.exceptions import BadRequestException
 class ResourceService:
     async def upload_bot_source(self, files: List[UploadFile]) -> List[Dict[str, Any]]:
         """
-        Xử lý upload nhiều file nguồn cho bot, đếm ký tự và trả về thông tin giống Node.js.
+        Xử lý upload nhiều file nguồn cho bot, đếm ký tự và trả về thông tin
         """
         results = []
         

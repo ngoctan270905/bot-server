@@ -103,7 +103,6 @@ class BotAnalyticsService:
         """
         Đồng bộ dữ liệu analytics cho bot vào một ngày cụ thể.
         Logic: Query từ ChatHistory và Conversation rồi ghi đè vào ChatAnalytics.
-        (Giống logic createChatAnalyticsForDate trong Node.js)
         """
         if not date:
             date = datetime.now(timezone.utc)

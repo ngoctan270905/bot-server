@@ -63,7 +63,7 @@ class ChatService:
 
         results = []
         for conv in conversations:
-            # Lấy tin nhắn cuối cùng hoặc vài tin nhắn gần đây để preview (giống Prisma include)
+            # Lấy tin nhắn cuối cùng hoặc vài tin nhắn gần đây để preview
             history = await self._chat_history_repo.get_by_conversation(conv["_id"])
 
             # Map sang schema

@@ -14,7 +14,7 @@ from app.schemas.project import (
 )
 from app.core.exceptions import NotFoundException, ForbiddenException
 
-# Giả lập dữ liệu subscription (giống bản Node.js)
+# Giả lập dữ liệu subscription
 SUBSCRIPTIONS = [
     {
         "id": "package_starter",

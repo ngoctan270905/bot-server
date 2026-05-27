@@ -35,13 +35,19 @@ async def start_listener():
     # 3. Vòng lặp lắng nghe Stream
     while True:
         try:
+            # Đọc message từ Redis Stream theo Consumer Group
             streams = await redis_manager.client.xreadgroup(
-                group_name, consumer_name, {stream_name: ">"}, count=1, block=2000
+                group_name, # nhóm worker (TELEGRAM_GROUP)
+                consumer_name, # tên worker hiện tại
+                {stream_name: ">"}, # chỉ đọc message MỚI chưa xử lý
+                count=1, # mỗi lần lấy 1 message
+                block=2000 # nếu không có message thì chờ tối đa 2s
             )
 
             if not streams:
                 continue
 
+            # streams có dạng: [(stream_name, [(message_id, data), ...])]
             for stream, messages in streams:
                 for message_id, data in messages:
                     tele_id = data.get("telebotId")

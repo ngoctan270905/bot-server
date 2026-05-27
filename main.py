@@ -21,6 +21,8 @@ from app.api.v1.router import api_router
 from app.webhooks import telegram as telegram_webhook
 from starlette.staticfiles import StaticFiles
 from pathlib import Path
+from app.event_handlers.listener import start_listener
+import asyncio
 
 # Configure logging before FastAPI app initialization
 configure_logging()
@@ -32,7 +34,7 @@ async def lifespan(app: FastAPI):
     uploads_path.mkdir(parents=True, exist_ok=True)
     logger.info(f"Đảm bảo thư mục uploads '{uploads_path}' tồn tại.")
 
-    # 2. Khởi tạo các kết nối Database Pool (Chuẩn Production)
+    # 2. Khởi tạo các kết nối Database Pool
     try:
         await mongo_manager.connect()
         await redis_manager.connect()
@@ -43,9 +45,7 @@ async def lifespan(app: FastAPI):
         app.state.redis = redis_manager
         app.state.arq_pool = redis_manager.arq_pool
 
-        # 4. Khởi chạy Stream Listener (Tương đương startListener trong Node)
-        from app.event_handlers.listener import start_listener
-        import asyncio
+        # Khởi chạy Stream Listener
         asyncio.create_task(start_listener())
         
         logger.info("Tất cả các kết nối Database & AI Engine đã sẵn sàng. Stream Listener đã khởi chạy.")

@@ -11,7 +11,7 @@ class MailerService:
 
     async def send_forgot_password_email(self, email: str, new_password: str):
         """
-        Gửi email thông báo mật khẩu mới cho người dùng (Đồng bộ với Node.js).
+        Gửi email thông báo mật khẩu mới cho người dùng
         """
         if not self.api_key:
             logger.warning("SENDGRID_API_KEY chưa được cấu hình. Không thể gửi email.")
