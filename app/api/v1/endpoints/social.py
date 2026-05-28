@@ -47,7 +47,7 @@ async def facebook_connect_callback(
             logger.bind(context="Social").warning("No pages found for this user.")
             return RedirectResponse(url=final_redirect_url)
 
-        # 3. Đăng ký webhook và lưu vào DB cho TẤT CẢ các trang (Đã cải tiến hơn travel-bot-server một chút ở chỗ loop này)
+        # 3. Đăng ký webhook và lưu vào DB cho TẤT CẢ các trang
         for page in pages:
             try:
                 await social_service.subscribe_page_to_webhook(page["id"], page["access_token"])

@@ -37,8 +37,10 @@ class SocialService:
         # Danh sách quyền Facebook app yêu cầu khi OAuth
         self._scope = [
             "pages_show_list",
+            "pages_read_engagement",
             "pages_manage_metadata",
-            "pages_messaging"
+            "pages_messaging",
+            "business_management"
         ]
 
         # Danh sách webhook events cần subscribe cho Fanpage
@@ -112,7 +114,7 @@ class SocialService:
 
         query_string = urllib.parse.urlencode(params)
 
-        return f"{self._fb_graph_url}/oauth/authorize?{query_string}"
+        return f"https://www.facebook.com/v25.0/dialog/oauth?{query_string}"
 
     async def get_facebook_access_token(self, code: str) -> str:
         """
@@ -158,6 +160,7 @@ class SocialService:
                 )
 
             access_token = data["access_token"]
+            print(f"User accesstorkm : {access_token}")
 
             logger.bind(context="Social").info(
                 f"Obtained FB User Access Token: {access_token}"
