@@ -18,7 +18,7 @@ from app.services.ai.engine import ai_engine
 from app.middlewares.request_id import RequestIDMiddleware
 from app.middlewares.logging import LoggingMiddleware
 from app.api.v1.router import api_router
-from app.webhooks import telegram as telegram_webhook
+from app.webhooks import telegram as telegram_webhook, facebook as facebook_webhook
 from starlette.staticfiles import StaticFiles
 from pathlib import Path
 from app.event_handlers.listener import start_listener
@@ -126,3 +126,4 @@ app.add_middleware(RequestIDMiddleware)
 # ---- Routers ----
 app.include_router(api_router, prefix=settings.API_V1_STR)
 app.include_router(telegram_webhook.router, prefix="/webhook", tags=["Webhooks"])
+app.include_router(facebook_webhook.router, prefix="/webhook", tags=["Webhooks"])

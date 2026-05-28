@@ -30,7 +30,7 @@ async def facebook_connect_callback(
     state: str,
     social_service: SocialService = Depends(get_social_service)
 ):
-    """Xử lý callback từ Facebook theo phong cách travel-bot-server."""
+    """Xử lý callback từ Facebook"""
     try:
         state_data = json.loads(state)
         bot_id = state_data.get("botId")
@@ -57,54 +57,10 @@ async def facebook_connect_callback(
                 # Log lỗi nhưng không chặn tiến trình của các trang khác
                 logger.bind(context="Social").error(f"Error processing page {page.get('id')}: {page_err}")
             
-        # 4. Redirect về mà không kèm status (Đúng như travel-bot-server)
+        # 4. Redirect về mà không kèm status
         return RedirectResponse(url=final_redirect_url)
         
     except Exception as e:
         logger.bind(context="Social").error(f"Facebook Connect Callback Error: {str(e)}")
-        # Trong trường hợp lỗi nghiêm trọng, vẫn redirect về frontend để không bị kẹt trang trắng
         fallback_url = f"{settings.FRONTEND_URL}/dashboard"
         return RedirectResponse(url=fallback_url)
-
-@router.get("/facebook/webhook")
-async def verify_facebook_webhook(
-    hub_mode: str = Query(None, alias="hub.mode"),
-    hub_challenge: str = Query(None, alias="hub.challenge"),
-    hub_verify_token: str = Query(None, alias="hub.verify_token")
-):
-    """Xác thực Webhook với Facebook."""
-    if hub_mode == "subscribe" and hub_verify_token == settings.social.fb_verify_token:
-        return Response(content=hub_challenge)
-    return Response(content="Verification failed", status_code=403)
-
-@router.post("/facebook/webhook")
-async def handle_facebook_webhook(
-    request: Request,
-    x_hub_signature_256: str = Header(None)
-):
-    """Nhận và xử lý sự kiện Webhook từ Facebook."""
-    # 1. Xác thực chữ ký (Security)
-    if not x_hub_signature_256:
-        raise HTTPException(status_code=401, detail="X-Hub-Signature-256 missing")
-
-    body = await request.body()
-    expected_signature = "sha256=" + hmac.new(
-        settings.social.fb_app_secret.encode(),
-        body,
-        hashlib.sha256
-    ).hexdigest()
-
-    if not hmac.compare_digest(x_hub_signature_256, expected_signature):
-        raise HTTPException(status_code=403, detail="Signature mismatch")
-
-    # 2. Xử lý payload
-    try:
-        data = json.loads(body.decode())
-        logger.bind(context="FB-Webhook").info(f"Received FB Webhook: {data}")
-        
-        # TODO: Đẩy vào Redis Stream hoặc xử lý trực tiếp (giống travel-bot-server)
-        
-        return {"status": "ok"}
-    except Exception as e:
-        logger.bind(context="FB-Webhook").error(f"Error processing FB Webhook: {e}")
-        return {"status": "error", "message": str(e)}
