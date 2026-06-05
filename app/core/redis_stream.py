@@ -104,12 +104,17 @@ class RedisStreamConsumer:
     def _parse_item(self, item_array: Any, reclaimed: bool = False) -> Dict[str, Any]:
         """Convert format của Redis Stream sang Dict."""
         message_id, fields = item_array
-        # fields là list [key1, value1, key2, value2...]
+        # fields có thể là dict (nếu decode_responses=True) hoặc list (nếu False)
         ret = {"recordID": message_id, "reclaimed": reclaimed}
-        for i in range(0, len(fields), 2):
-            key = fields[i]
-            value = fields[i+1]
-            ret[key] = value
+        
+        if isinstance(fields, dict):
+            ret.update(fields)
+        else:
+            # fields là list [key1, value1, key2, value2...]
+            for i in range(0, len(fields), 2):
+                key = fields[i]
+                value = fields[i+1]
+                ret[key] = value
         return ret
 
     async def _read_group_loop(self):
@@ -162,7 +167,7 @@ class RedisStreamConsumer:
                     # Lọc ra những cái quá hạn
                     ids_to_claim = [
                         p["message_id"] for p in pending
-                        if p["idle"] > self.check_abandoned_ms
+                        if p["time_since_delivered"] > self.check_abandoned_ms
                     ]
 
                     if ids_to_claim:
