@@ -16,30 +16,30 @@ class TelegramService:
         self.base_url = "https://api.telegram.org/bot"
 
     async def get_bot_info(self, bot_token: str) -> dict:
-        """Lấy thông tin bot từ Telegram."""
+        """Retrieve bot information from Telegram."""
 
         async with httpx.AsyncClient() as client:
             response = await client.get(
                 f"{self.base_url}{bot_token}/getMe"
             )
 
-            # Quan trọng: Telegram fail thường trả 200 nhưng ok=false
-            # nhưng vẫn check status_code để bắt lỗi network
+            # Telegram my return HTTP 200 even when the request fails
+            # (ok=false), but the status code is still checked to detect network or connectivity issues.
             if response.status_code != 200:
                 logger.error(
                     f"Failed to get Telegram bot info: {response.text}"
                 )
 
                 raise BadRequestException(
-                    detail="Token không hợp lệ hoặc không thể kết nối tới Telegram"
+                    detail="Invalid token or unable to connect to Telegram"
                 )
 
             return response.json()["result"]
 
     async def set_webhook(self, bot_token: str, tele_id: int) -> bool:
-        """Đăng ký webhook để Telegram push event về server."""
+        """Register a webhook so Telegram can push events to the server."""
 
-        # URL này phải public (https) thì Telegram mới accept
+        # The webhook URL must be publicly and accessible over HTTPS.
         webhook_url = f"{settings.DOMAIN_URL}/webhook/telegram/{tele_id}"
         secret_token = settings.social.tele_secret_token
 
@@ -54,7 +54,7 @@ class TelegramService:
                 json=params
             )
 
-            # Quan trọng: nếu webhook fail thì bot coi như không hoạt động
+            # The bot cannot receive updates if webhook registration fails.
             if response.status_code != 200:
                 logger.error(
                     f"Failed to set Telegram webhook: {response.text}"
@@ -64,14 +64,17 @@ class TelegramService:
             return True
 
     async def connect_bot(self, bot_id: str, bot_token: str):
-        """Kết nối bot: verify -> set webhook -> lưu DB."""
+        """
+        Connect a Telegram bot by verifying the token, configuring the webhook,
+        and persisting bot information.
+        """
 
-        # 1. Verify token + lấy info bot
+        # Verify the bot token and retrieve bot information.
         bot_info = await self.get_bot_info(bot_token)
 
         tele_id = bot_info["id"]
 
-        # Ghép tên bot (có thể thiếu last_name nên filter None)
+        # Build the display name from available name parts.
         name = " ".join(
             filter(
                 None,
@@ -82,7 +85,7 @@ class TelegramService:
             )
         )
 
-        # 2. Set webhook (fail là dừng luôn flow)
+        # Configure the webhook before persisting the bot.
         webhook_success = await self.set_webhook(
             bot_token,
             tele_id
@@ -90,10 +93,10 @@ class TelegramService:
 
         if not webhook_success:
             raise InternalServerException(
-                detail="Không thể thiết lập Webhook với Telegram"
+                detail="Failed to configure the Telegram webhook"
             )
 
-        # 3. Lưu thông tin bot vào DB
+        # Persist bot information in the SocialPage collection.
         social_data = {
             "pageId": str(tele_id),
             "botId": bot_id,
@@ -109,12 +112,12 @@ class TelegramService:
             social_data
         )
 
-        # 4. Lấy lại record để trả về API
+        # Retrieve the saved record for the API response.
         saved_page = await self.social_repo.get_by_page_id(
             str(tele_id)
         )
 
-        # Mongo ObjectId -> string để tránh lỗi serialize JSON
+        # Convert MongoDB ObjectId to string for JSON serialization.
         if saved_page and "_id" in saved_page:
             saved_page["_id"] = str(saved_page["_id"])
 

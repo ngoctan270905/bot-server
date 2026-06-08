@@ -8,7 +8,7 @@ from app.services.telegram_service import TelegramService
 from app.schemas.telegram import TelegramUpdate
 
 async def handle_telegram_message_event(
-    tele_id: str, 
+    tele_id: str,
     payload_str: str,
     social_repo: SocialPageRepository,
     customer_repo: CustomerRepository,
@@ -16,16 +16,17 @@ async def handle_telegram_message_event(
     telegram_service: TelegramService
 ):
     """
-    Xử lý một sự kiện tin nhắn Telegram từ Redis Stream.
+    Handle a Telegram message event received from Redis Stream.
     """
     try:
         update_data = json.loads(payload_str)
         update = TelegramUpdate(**update_data)
-        
+
+        # Ignore non-text messages.
         if not update.message or not update.message.text:
             return
 
-        # 1. Tìm SocialPage
+        # Retrieve the associated social page configuration.
         social_page = await social_repo.get_by_page_id(tele_id)
         if not social_page:
             logger.warning(f"SocialPage not found for tele_id: {tele_id}")
@@ -34,7 +35,7 @@ async def handle_telegram_message_event(
         bot_token = social_page["pageAccessToken"]
         bot_id = social_page["botId"]
 
-        # 2. Tìm hoặc tạo Customer
+        # Find or create the customer record.
         customer_cid = str(update.message.from_user.id)
         customer = await customer_repo.collection.find_one({
             "cid": customer_cid,
@@ -51,7 +52,7 @@ async def handle_telegram_message_event(
             result = await customer_repo.collection.insert_one(customer_data)
             customer = {**customer_data, "_id": result.inserted_id}
 
-        # 3. Tìm hoặc tạo Conversation
+        # Find or create the conversation.
         conversation = await conversation_repo.collection.find_one({
             "customerId": customer["_id"]
         })
@@ -66,19 +67,23 @@ async def handle_telegram_message_event(
             result = await conversation_repo.collection.insert_one(conversation_data)
             conversation = {**conversation_data, "_id": result.inserted_id}
 
-        # 4. Kiểm tra autoReply (Nếu tắt thì chỉ lưu history - Todo)
+        # Skip AI processing when auto-reply is disabled.
         if not conversation.get("autoReply", True):
             return
 
-        # 5. Hỏi AI
+        # Generate a response using the AI engine.
         response_text = await ai_engine.ask(
             bot_id=str(bot_id),
             question=update.message.text,
             conversation_id=str(conversation["_id"])
         )
 
-        # 6. Gửi phản hồi
-        await telegram_service.send_message(bot_token, update.message.chat.id, response_text)
+        # Send the generated response back to Telegram.
+        await telegram_service.send_message(
+            bot_token,
+            update.message.chat.id,
+            response_text
+        )
 
     except Exception as e:
         logger.error(f"Error handling telegram message: {e}")

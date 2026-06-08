@@ -14,9 +14,9 @@ from app.consumers.facebook_consumer import FacebookMessageConsumer
 
 async def start_listener():
     """
-    Lắng nghe toàn bộ Redis Streams (Telegram, Facebook...) dùng cơ chế Consumer Group chuẩn.
+    Listen to all Redis Streams (Telegram, Facebook, ...) using Consumer Group mechanism.
     """
-    # 1. Khởi tạo Repositories & Services sau khi DB đã kết nối
+    # 1. Initialize repositories and services after database connection is established
     db = mongo_manager.client[settings.DATABASE_NAME]
     social_repo = SocialPageRepository(db["SocialPage"])
     customer_repo = CustomerRepository(db["Customer"])
@@ -24,8 +24,9 @@ async def start_listener():
     telegram_service = TelegramService(social_repo)
     social_service = SocialService(social_repo)
 
-    # 2. Khởi tạo các Consumer kế thừa từ RedisStreamConsumer
-    # Mỗi consumer sẽ tự động lo việc: Tạo group, Đọc tin mới, và Cứu hộ tin kẹt (XCLAIM)
+    # 2. Initialize consumers that inherit from RedisStreamConsumer
+    # Each consumer automatically handles: group creation, consuming new messages,
+    # and recovering pending messages (XCLAIM)
     tele_consumer = TelegramMessageConsumer(
         redis_manager.client,
         social_repo, customer_repo, conversation_repo, telegram_service,
@@ -38,11 +39,11 @@ async def start_listener():
         consumer_name="PYTHON_FACEBOOK_WORKER_1"
     )
 
-    # 3. Bắt đầu lắng nghe
+    # 3. Start Listening
     logger.info("Starting Stream Consumers with Self-Healing capabilities...")
     await tele_consumer.start()
     await fb_consumer.start()
 
-    # Giữ cho task này sống mãi để duy trì các loop bên trong consumers
+    # Keep this task alive to maintain internal consumer loops
     while True:
         await asyncio.sleep(3600)

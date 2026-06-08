@@ -12,7 +12,7 @@ async def connect_telegram(
     telegram_service: TelegramService = Depends(get_telegram_service)
 ):
     """
-    Kết nối Telegram Bot vào hệ thống và thiết lập Webhook.
+    Connect a Telegram bot to the system and set up a webhook
     """
     result = await telegram_service.connect_bot(
         bot_id=request_data.bot_id,
@@ -20,6 +20,6 @@ async def connect_telegram(
     )
     return UnifiedResponse(
         success=True,
-        message="Kết nối Telegram Bot thành công",
+        message="Telegram bot connected successfully",
         data=result
     )

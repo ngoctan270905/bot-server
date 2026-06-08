@@ -13,17 +13,16 @@ async def telegram_webhook(
     x_telegram_bot_api_secret_token: str = Header(None, alias="X-Telegram-Bot-Api-Secret-Token")
 ):
     """
-    Tiếp nhận Webhook từ Telegram và đẩy vào Redis Stream.
-    URL: /webhook/telegram/{tele_id}
+    Receive webhook updates from Telegram and push them into a Redis Stream.
     """
-    # 1. Xác thực Secret Token
+    # 1. Validate the secret token
     if x_telegram_bot_api_secret_token != settings.social.tele_secret_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Unauthorized"
         )
 
-    # 2. Đẩy vào Redis Stream
+    # 2. Push the event into Redis Stream
     stream_name = "TELEGRAM_MESSAGE_STREAM"
     
     event_data = {
