@@ -4,11 +4,13 @@ from datetime import datetime, timezone
 from typing import List
 from app.db.mongodb import get_database
 from app.services.ai.engine import ai_engine
+from app.services.ai.embeddings.factory import get_embeddings
 from app.helper.document_processor import document_processor
 from langchain_core.documents import Document
 from langchain_community.vectorstores import Redis as RedisVectorStore
 from loguru import logger
 from bson import ObjectId
+from app.core.config import settings
 
 async def train_bot_task(ctx, bot_id: str, source_ids: List[str]):
     """
@@ -51,8 +53,6 @@ async def train_bot_task(ctx, bot_id: str, source_ids: List[str]):
                 s_docs.append(Document(page_content=f"Question: {q}\nAnswer: {a}"))
             elif s_type == "File":
                 file_path = source["filePath"]
-                # Đảm bảo đường dẫn đầy đủ tới file trong thư mục static/uploads
-                # Nếu filePath chưa có tiền tố, ta cần join với đường dẫn gốc của project
                 full_path = file_path if os.path.isabs(file_path) else os.path.join(os.getcwd(), file_path)
                 s_docs = await document_processor.load_file(full_path)
 
@@ -63,23 +63,21 @@ async def train_bot_task(ctx, bot_id: str, source_ids: List[str]):
             logger.bind(context="Training").warning(f"Không trích xuất được nội dung nào từ các sources của bot {bot_id}.")
             return
 
-        # 3. Cắt nhỏ văn bản (Sử dụng cấu hình 1000/100 trong document_processor)
+        # 3. Cắt nhỏ văn bản
         chunks = document_processor.chunk_documents(all_docs)
 
         # 4. Lưu vào Redis thông qua LangChain
-        embeddings = ai_engine.get_embeddings()
+        embeddings = get_embeddings()
 
         # Xóa dữ liệu cũ của bot này trên Redis trước khi nạp mới
         try:
-            # Kiểm tra và xóa index nếu tồn tại
             RedisVectorStore.drop_index(
                 index_name=bot_id,
                 delete_documents=True,
-                redis_url=ai_engine.redis_url
+                redis_url=settings.redis.url
             )
             logger.bind(context="Training").info(f"Đã xóa index cũ: {bot_id}")
         except Exception as e:
-            # Nếu index chưa tồn tại thì bỏ qua
             logger.bind(context="Training").debug(f"Không thể xóa index (có thể chưa tồn tại): {e}")
 
         # Nạp dữ liệu mới vào Redis
@@ -87,7 +85,7 @@ async def train_bot_task(ctx, bot_id: str, source_ids: List[str]):
             documents=chunks,
             embedding=embeddings,
             index_name=bot_id,
-            redis_url=ai_engine.redis_url
+            redis_url=settings.redis.url
         )
 
         # Invalidate cache trong AI Engine để lần hỏi tiếp theo sẽ load dữ liệu mới

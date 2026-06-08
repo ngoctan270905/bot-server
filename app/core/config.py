@@ -33,7 +33,7 @@ class AISettings(BaseModel):
 
     # Bot-Server specific AI settings (Synced with ChatBot-Model)
     embedding_url: str = Field("http://localhost:8081/v1/embeddings", alias="EMBEDDING_URL")
-    embedding_model: str = Field("bge-m3", alias="EMBEDDING_MODEL")
+    embedding_model: str = Field("jina-embeddings-v2-base-en", alias="EMBEDDING_MODEL")
 
     reranker_url: str = Field("http://localhost:8082/v1/rerank", alias="RERANKER_URL")
     reranker_model: str = Field("bge-reranker-v2-m3", alias="RERANKER_MODEL")

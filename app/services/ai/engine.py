@@ -1,24 +1,21 @@
 import json
 import httpx
 from typing import List, Optional
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, messages_from_dict, messages_to_dict
-from langchain_core.documents import Document
+from loguru import logger
 import redis.asyncio as redis
 
 from app.core.config import settings
 from app.services.ai.graph_builder import build_workflow
+from app.services.ai.embeddings.factory import get_embeddings
 
 class AIEngine:
     """
     Cổng giao tiếp chính của AI Module.
-    Quản lý tài nguyên dùng chung (Redis, LLM cache, Embeddings) và thực thi Graph.
+    Quản lý tài nguyên dùng chung (Redis) và thực thi Graph.
     """
     def __init__(self):
         self.redis_url = settings.redis.url
-        self._llm_cache = {}
-        self._embeddings = None
         self._redis_client = None
         self._graphs = {} # Cache compiled graphs theo bot_id
         self._vs_cache = {} # Cache RedisVectorStore instances
@@ -29,14 +26,8 @@ class AIEngine:
         try:
             self._redis_client = redis.from_url(self.redis_url, decode_responses=True)
             await self._redis_client.ping()
-
-            self._embeddings = OpenAIEmbeddings(
-                model=settings.ai.embedding_model,
-                openai_api_key=settings.ai.openai_key or "local-no-key",
-                openai_api_base=settings.ai.embedding_url.replace("/embeddings", "")
-            )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"AIEngine start error: {e}")
 
     async def stop(self):
         """Đóng kết nối khi Server Shutdown"""
@@ -45,38 +36,12 @@ class AIEngine:
         await self._http_client.aclose()
 
     def get_embeddings(self):
-        if self._embeddings is None:
-            return OpenAIEmbeddings(
-                model=settings.ai.embedding_model,
-                openai_api_key=settings.ai.openai_key or "local-no-key",
-                openai_api_base=settings.ai.embedding_url.replace("/embeddings", "")
-            )
-        return self._embeddings
+        """Lấy công cụ Embedding từ factory"""
+        return get_embeddings()
 
     def invalidate_vs_cache(self, bot_id: str):
         if bot_id in self._vs_cache:
             del self._vs_cache[bot_id]
-
-    def get_llm(self, model_name: Optional[str] = None, temperature: float = 0.3):
-        target_model = model_name or settings.ai.llm_model
-        cache_key = f"{target_model}_{temperature}"
-        if cache_key not in self._llm_cache:
-            if "gpt" in target_model or "gemma" in target_model or "bge" in target_model:
-                self._llm_cache[cache_key] = ChatOpenAI(
-                    model=target_model,
-                    temperature=temperature,
-                    openai_api_key=settings.ai.openai_key or "local-no-key",
-                    openai_api_base=settings.ai.llm_url.replace("/chat/completions", ""),
-                )
-            elif "gemini" in target_model:
-                self._llm_cache[cache_key] = ChatGoogleGenerativeAI(
-                    model=target_model,
-                    google_api_key=settings.ai.gemini_key,
-                    temperature=temperature
-                )
-            else:
-                self._llm_cache[cache_key] = ChatOpenAI(model=target_model, temperature=temperature)
-        return self._llm_cache[cache_key]
 
     def _get_graph(self, bot_id: str):
         if bot_id not in self._graphs:
@@ -132,10 +97,11 @@ class AIEngine:
                   Nội dung phản hồi cuối cùng từ AI.
 
           Notes:
-              - Workflow sử dụng LangGraph dạng tuyến tính (Linear RAG).
+              - Workflow sử dụng LangGraph thiết kế Single-Node (tương đương Node.js).
               - Chat history được lưu trên Redis.
-              - Graph và LLM được cache để tối ưu hiệu năng.
+              - Graph được cache để tối ưu hiệu năng.
         """
+        logger.bind(context="AI-Engine").info(f"New request - Bot: {bot_id}, Conversation: {conversation_id}, Question: {question}")
         try:
             chat_history = await self.get_chat_history(conversation_id)
             graph = self._get_graph(bot_id)
@@ -151,6 +117,8 @@ class AIEngine:
             result = await graph.ainvoke(initial_state)
             answer = result.get("answer", "Xin lỗi, tôi không thể trả lời lúc này.")
 
+            logger.bind(context="AI-Engine").info(f"Final answer for {conversation_id}: {answer[:100]}...")
+
             await self.save_chat_history(conversation_id, [
                 HumanMessage(content=question),
                 AIMessage(content=answer)
@@ -158,7 +126,8 @@ class AIEngine:
 
             return str(answer)
 
-        except Exception:
+        except Exception as e:
+            logger.error(f"AI Engine Error: {e}")
             return "Xin lỗi, tôi gặp sự cố trong quá trình suy nghĩ. Vui lòng thử lại sau."
 
 # Khởi tạo Singleton
