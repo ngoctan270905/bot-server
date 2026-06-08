@@ -32,7 +32,7 @@ class WorkerSettings:
         train_bot_task
     ]
     
-    # Thiết lập chạy định kỳ (Cron) giống Node.js
+    # Thiết lập chạy định kỳ (Cron)
     cron_jobs = [
         cron(
             cron_sync_all_bots_analytics_task, 

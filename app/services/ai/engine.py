@@ -97,7 +97,7 @@ class AIEngine:
                   Nội dung phản hồi cuối cùng từ AI.
 
           Notes:
-              - Workflow sử dụng LangGraph thiết kế Single-Node (tương đương Node.js).
+              - Workflow sử dụng LangGraph thiết kế Single-Node
               - Chat history được lưu trên Redis.
               - Graph được cache để tối ưu hiệu năng.
         """

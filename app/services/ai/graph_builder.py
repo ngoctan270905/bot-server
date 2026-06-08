@@ -11,7 +11,7 @@ from app.services.ai.vector_stores.factory import get_vector_store
 
 def build_workflow(bot_id: str, ai_engine_instance):
     """
-    Xây dựng đồ thị logic cho Bot (Tương đương thiết kế Node.js).
+    Xây dựng đồ thị logic cho Bot.
     Gom 3 bước Analysis -> Retrieve -> Generate vào 1 Node duy nhất dùng Chain.
     """
     
