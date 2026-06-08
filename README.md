@@ -1,4 +1,4 @@
-# Bot Server - Production Ready AI Chatbot Backend
+# Bot Server - AI Chatbot Backend
 
 Bot Server là hệ thống backend mạnh mẽ được xây dựng bằng **FastAPI**, được thiết kế để quản lý và vận hành các bot AI tích hợp đa kênh (Facebook, Telegram, Zalo). Hệ thống hỗ trợ xử lý tác vụ nền (background tasks), kiến trúc hướng sự kiện (event-driven) và tích hợp các Engine AI tiên tiến.
 
