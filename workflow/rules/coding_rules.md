@@ -1,1 +1,0 @@
-Tuân thủ schema_rule.md -> repository_rule.md -> service_rule.md
