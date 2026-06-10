@@ -10,6 +10,14 @@ class TelegramConnectRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
+class TelegramDisconnectRequest(BaseModel):
+    """Request ngắt kết nối Telegram Bot."""
+
+    bot_id: str = Field(..., alias="botId", description="ID của Bot trong hệ thống")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
 class TelegramBotInfo(BaseModel):
     """Thông tin Telegram Bot."""
 

@@ -18,3 +18,7 @@ class SocialPageRepository(BaseRepository):
             {"$set": data},
             upsert=True
         )
+
+    async def delete_by_bot_and_channel(self, bot_id: str, channel: str) -> bool:
+        result = await self.collection.delete_many({"botId": bot_id, "channel": channel})
+        return result.deleted_count > 0

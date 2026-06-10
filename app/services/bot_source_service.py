@@ -67,7 +67,7 @@ class BotSourceService:
 
         # 2. Kiểm tra giới hạn ký tự (Subscription)
         project = await self._project_repo.get_by_id(bot["projectId"])
-        subscription = get_subscription_by_id(project.get("subscriptionId"))
+        subscription = await get_subscription_by_id(project.get("subscriptionId"))
         char_limit = subscription.services.characters_per_bot
 
         # Tính toán số ký tự hiện tại và mới

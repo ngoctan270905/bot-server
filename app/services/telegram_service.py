@@ -63,6 +63,37 @@ class TelegramService:
 
             return True
 
+    async def delete_webhook(self, bot_token: str) -> bool:
+        """Remove the webhook from Telegram."""
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{self.base_url}{bot_token}/deleteWebhook"
+            )
+            if response.status_code != 200:
+                logger.error(f"Failed to delete Telegram webhook: {response.text}")
+                return False
+            return True
+
+    async def disconnect_bot(self, bot_id: str):
+        """
+        Disconnect a Telegram bot by removing its webhook and deleting the record.
+        """
+        # 1. Tìm bản ghi social_page
+        social_pages = await self.social_repo.get_by_bot_id(bot_id)
+        telegram_page = next((p for p in social_pages if p.get("channel") == "telegram"), None)
+
+        if not telegram_page:
+            return False
+
+        # 2. Xóa Webhook trên Telegram
+        bot_token = telegram_page.get("pageAccessToken")
+        if bot_token:
+            await self.delete_webhook(bot_token)
+
+        # 3. Xóa khỏi Database
+        await self.social_repo.delete_by_bot_and_channel(bot_id, "telegram")
+        return True
+
     async def connect_bot(self, bot_id: str, bot_token: str):
         """
         Connect a Telegram bot by verifying the token, configuring the webhook,

@@ -1,115 +1,76 @@
-"""
-Quản lý dữ liệu subscription/token package của hệ thống.
-
-Bao gồm:
-- Gói mặc định miễn phí
-- Danh sách các gói subscription
-- Hàm lấy thông tin subscription theo ID
-"""
-
+import json
+import os
 from typing import List, Optional
+from app.schemas.subscription import TokenSubscription
 
-from app.schemas.subscription import (
-    TokenSubscription,
-    TokenSubscriptionService
-)
-
-
-"""
-Gói subscription mặc định của hệ thống.
-
-Được sử dụng khi:
-- Project chưa có subscription
-- Subscription ID không tồn tại
-- Không truyền subscription ID
-"""
-DEFAULT_SUBSCRIPTION = TokenSubscription(
-    id="package_starter",
-    name="Starter",
-    description="Starter package",
-    is_free=True,
-    services=TokenSubscriptionService(
-        tokens_per_bot_per_month=10000,
-        characters_per_bot=400000,
-        team_members=1
-    )
-)
-
-
-"""
-Danh sách các gói subscription trả phí của hệ thống.
-"""
-TOKEN_SUBSCRIPTIONS = [
-    TokenSubscription(
-        id="package_basic",
-        name="Basic",
-        description="Basic package",
-        services=TokenSubscriptionService(
-            tokens_per_bot_per_month=100000,
-            characters_per_bot=10000000,
-            team_members=3
+class SubscriptionService:
+    def __init__(self):
+        # Đường dẫn tới file JSON chứa dữ liệu gói cước
+        self._data_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), 
+            "datas", 
+            "subscriptions.json"
         )
-    ),
-    TokenSubscription(
-        id="package_pro",
-        name="Pro",
-        description="Pro package",
-        services=TokenSubscriptionService(
-            tokens_per_bot_per_month=300000,
-            characters_per_bot=20000000,
-            team_members=5
-        )
-    ),
-    TokenSubscription(
-        id="package_enterprise",
-        name="Enterprise",
-        description="Enterprise package",
-        services=TokenSubscriptionService(
-            tokens_per_bot_per_month=1000000,
-            characters_per_bot=50000000,
-            team_members=10
-        )
-    ),
-    TokenSubscription(
-        id="package_developer",
-        name="Developer",
-        description="Developer package",
-        services=TokenSubscriptionService(
-            tokens_per_bot_per_month=9999999999,
-            characters_per_bot=9999999999,
-            team_members=99999999
-        )
-    )
-]
+        self.default_subscription = None
+        self.paid_subscriptions = []
+        self._load_data()
 
+    def _load_data(self):
+        """Load dữ liệu từ file JSON vào memory"""
+        if not os.path.exists(self._data_path):
+            # Fallback nếu không tìm thấy file
+            from app.schemas.subscription import TokenSubscriptionService
+            self.default_subscription = TokenSubscription(
+                id="package_starter",
+                name="Starter",
+                description="Starter package",
+                is_free=True,
+                prices=[],
+                features=[],
+                services=TokenSubscriptionService(
+                    tokens_per_bot_per_month=10000,
+                    characters_per_bot=400000,
+                    team_members=1
+                )
+            )
+            self.paid_subscriptions = []
+            return
 
-def get_subscription_by_id(
+        with open(self._data_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            self.default_subscription = TokenSubscription(**data["default"])
+            self.default_subscription.is_free = True
+            self.paid_subscriptions = [
+                TokenSubscription(**item) for item in data["paid"]
+            ]
+
+    def get_subscriptions(self) -> List[TokenSubscription]:
+        """Lấy tất cả các gói subscription (Free + Paid)"""
+        return [self.default_subscription] + self.paid_subscriptions
+
+    def get_subscription_by_id(
+        self, 
+        subscription_id: Optional[str] = None
+    ) -> TokenSubscription:
+        """Lấy thông tin subscription theo ID"""
+        if not subscription_id or subscription_id == self.default_subscription.id:
+            return self.default_subscription
+        
+        for sub in self.paid_subscriptions:
+            if sub.id == subscription_id:
+                return sub
+        
+        return self.default_subscription
+
+# Global instance để sử dụng trong app
+_service = SubscriptionService()
+
+async def get_subscription_by_id(
     subscription_id: Optional[str] = None
 ) -> TokenSubscription:
-    """
-    Lấy thông tin subscription theo ID.
+    """Hàm helper async để lấy subscription (tương thích với code cũ)"""
+    return _service.get_subscription_by_id(subscription_id)
 
-    Args:
-        subscription_id:
-            ID của gói subscription.
-
-    Returns:
-        TokenSubscription:
-            Thông tin subscription tương ứng.
-
-    Notes:
-        - Nếu không truyền subscription_id,
-          trả về gói mặc định.
-        - Nếu không tìm thấy subscription,
-          trả về gói mặc định.
-    """
-
-    if not subscription_id:
-        return DEFAULT_SUBSCRIPTION
-
-    for subscription in TOKEN_SUBSCRIPTIONS:
-
-        if subscription.id == subscription_id:
-            return subscription
-
-    return DEFAULT_SUBSCRIPTION
+async def get_all_subscriptions() -> List[TokenSubscription]:
+    """Hàm helper async để lấy tất cả gói cước"""
+    return _service.get_subscriptions()
