@@ -36,6 +36,7 @@ Bot-Server/
 ├── app/
 │   ├── api/            # Các API endpoints (v1)
 │   ├── core/           # Cấu hình hệ thống, worker, bảo mật (JWT)
+│   ├── datas/          # Chứa dữ liệu JSON mặc định (Subscriptions)
 │   ├── db/             # Kết nối & quản lý Database (Mongo, Redis, Qdrant)
 │   ├── consumers/      # Xử lý Redis Streams (Event consumers)
 │   ├── event_handlers/ # Logic xử lý các sự kiện cụ thể (FB, Tele,...)
@@ -74,6 +75,16 @@ source venv/bin/activate
 
 # Cài đặt thư viện
 pip install -r requirements.txt
+
+# Tạo các thư mục cần thiết
+mkdir logs
+mkdir -p static/uploads
+
+# Tạo file log trống
+# Windows:
+type nul > logs/app.log
+# Linux/macOS:
+touch logs/app.log
 ```
 
 ### 2. Cấu hình biến môi trường
