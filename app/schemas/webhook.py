@@ -5,6 +5,10 @@ from typing import Annotated
 
 PyObjectId = Annotated[str, BeforeValidator(str)]
 
+class WebhookEvent(BaseModel):
+    id: str
+    name: str
+
 class WebhookCreate(BaseModel):
     app_id: str = Field(...)
     endpoints: list[str] = Field(default_factory=list)
