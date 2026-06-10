@@ -1,7 +1,5 @@
 import uuid
-
 from loguru import logger
-
 from app.db.redis import get_arq_pool
 import asyncio
 from datetime import datetime, timezone
@@ -109,6 +107,34 @@ class ChatService:
         conversation = await self._conversation_repo.create(conversation_data)
 
         return str(conversation["_id"])
+
+    async def send_message_http(self, bot_id: str, message: str, conversation_id: Optional[str] = None) -> dict:
+        """
+        Xử lý gửi tin nhắn qua HTTP POST (Đồng bộ với logic Node.js).
+        """
+        # 1. Tìm hoặc tạo Conversation
+        if conversation_id:
+            conversation = await self._conversation_repo.get_by_id(conversation_id)
+            if not conversation:
+                # Nếu truyền ID sai thì tạo mới luôn cho mượt
+                conversation_id = await self.start_chat(bot_id, "web")
+        else:
+            conversation_id = await self.start_chat(bot_id, "web")
+
+        # 2. Lưu tin nhắn của khách
+        await self.save_message(conversation_id, bot_id, message, "customer")
+
+        # 3. Lấy AI Response
+        ai_text = await self.get_ai_response(bot_id, message, conversation_id)
+
+        # 4. Lưu tin nhắn AI
+        await self.save_message(conversation_id, bot_id, ai_text, "ai")
+
+        return {
+            "conversation_id": conversation_id,
+            "text": ai_text,
+            "created_at": datetime.now(timezone.utc)
+        }
 
     async def save_message(self, conversation_id: str, bot_id: str, content: str, role: str):
       try:

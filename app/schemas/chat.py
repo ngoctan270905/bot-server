@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, ConfigDict, BeforeValidator
 from pydantic.alias_generators import to_camel
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Optional
 
 PyObjectId = Annotated[str, BeforeValidator(str)]
 
@@ -63,4 +63,15 @@ class ConversationWithHistory(ConversationDetailResponse):
 
 class ConversationUpdate(BaseModel):
     auto_reply: bool | None = None
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+class ChatSendMessage(BaseModel):
+    message: str = Field(..., alias="textMessage")
+    conversation_id: Optional[str] = Field(None, alias="conversationId")
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+class ChatSendMessageResponse(BaseModel):
+    conversation_id: str = Field(..., alias="conversationId")
+    text: str = Field(...)
+    created_at: datetime = Field(..., alias="createdAt")
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
