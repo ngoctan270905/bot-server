@@ -24,6 +24,7 @@ from app.repositories.chat_analytics_repository import ChatAnalyticsRepository
 from app.repositories.bot_source_repository import BotDataSourceRepository
 from app.repositories.training_history_repository import TrainingHistoryRepository
 from app.repositories.social_repository import SocialPageRepository
+from app.repositories.webhook_repository import WebhookRepository
 
 # Services
 from app.services.auth_service import AuthService
@@ -36,6 +37,7 @@ from app.services.lead_service import LeadService
 from app.services.bot_source_service import BotSourceService
 from app.services.resource_service import ResourceService
 from app.services.social_service import SocialService
+from app.services.webhook_service import WebhookService
 
 # Schemas
 from app.schemas.user import UserDetailResponse
@@ -213,6 +215,16 @@ async def get_bot_source_service(
         training_repo=training_repo,
         member_repo=member_repo
     )
+
+async def get_webhook_repository(db = Depends(get_database)) -> WebhookRepository:
+    """Dependency cung cấp WebhookRepository."""
+    return WebhookRepository(collection=db["Webhook"])
+
+async def get_webhook_service(
+    webhook_repo: WebhookRepository = Depends(get_webhook_repository)
+) -> WebhookService:
+    """Dependency cung cấp WebhookService."""
+    return WebhookService(webhook_repo=webhook_repo)
 
 async def get_resource_service() -> ResourceService:
     """Dependency cung cấp ResourceService."""

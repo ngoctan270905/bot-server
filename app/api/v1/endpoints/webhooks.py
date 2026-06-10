@@ -4,7 +4,7 @@ from app.schemas.base import UnifiedResponse
 
 router = APIRouter()
 
-# Danh sách các sự kiện webhook được hỗ trợ (Đồng bộ với Node.js)
+# Danh sách các sự kiện webhook được hỗ trợ
 WEBHOOK_EVENTS = [
     {"id": "leads.submit", "name": "Leads Submit"}
 ]

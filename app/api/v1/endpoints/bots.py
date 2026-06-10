@@ -6,12 +6,14 @@ from app.services.bot_service import BotService
 from app.services.bot_analytics_service import BotAnalyticsService
 from app.services.lead_service import LeadService
 from app.services.bot_source_service import BotSourceService
+from app.services.webhook_service import WebhookService
 from app.api.v1.dependencies import (
     get_bot_service, 
     get_bot_analytics_service, 
     get_lead_service, 
     get_bot_source_service,
-    get_current_user
+    get_current_user,
+    get_webhook_service
 )
 from app.schemas.bot import (
     BotCreate, 
@@ -26,6 +28,7 @@ from app.schemas.bot import (
 )
 from app.schemas.source import SourceResponse, TrainingHistoryResponse
 from app.schemas.user import UserDetailResponse
+from app.schemas.webhook import WebhookDetailResponse
 from app.schemas.base import UnifiedResponse
 
 router = APIRouter()
@@ -106,6 +109,23 @@ async def delete_bot(
     Xóa một Bot.
     """
     return await bot_service.delete_bot(str(current_user.id), id)
+
+@router.get("/{id}/webhook", response_model=UnifiedResponse)
+async def get_bot_webhook(
+    id: str,
+    current_user: UserDetailResponse = Depends(get_current_user),
+    webhook_service: WebhookService = Depends(get_webhook_service)
+) -> Any:
+    """
+    Lấy cấu hình webhook của một Bot.
+    """
+    # TODO: Kiểm tra quyền sở hữu bot/project của user
+    webhook = await webhook_service.get_webhook_by_bot_id(id)
+    return UnifiedResponse(
+        success=True,
+        message="Fetched bot webhook successfully",
+        data=webhook
+    )
 
 # --- Analytics & Leads Endpoints ---
 
