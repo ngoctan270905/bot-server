@@ -40,12 +40,19 @@ class AIEngine:
         return get_embeddings()
 
     def invalidate_vs_cache(self, bot_id: str):
+        """
+        Xóa bộ nhớ đệm Vector Store của bot.
+        """
         if bot_id in self._vs_cache:
             del self._vs_cache[bot_id]
 
     def _get_graph(self, bot_id: str):
+        """
+        Lấy hoặc tạo đồ thị xử lý cho bot.
+        """
         if bot_id not in self._graphs:
             self._graphs[bot_id] = build_workflow(bot_id, self)
+
         return self._graphs[bot_id]
 
     async def get_chat_history(self, conversation_id: str, limit: int = 10) -> List[BaseMessage]:
@@ -67,45 +74,46 @@ class AIEngine:
             await self._redis_client.expire(key, 86400)
         except Exception: pass
 
-    async def ask(self, bot_id: str, question: str, conversation_id: str, bot_instructions: Optional[str] = None) -> str:
+    async def ask(
+            self,
+            bot_id: str,
+            question: str,
+            conversation_id: str,
+            bot_instructions: Optional[str] = None
+    ) -> str:
         """
-          Xử lý câu hỏi của người dùng thông qua workflow LangGraph.
-
-          Quy trình:
-          1. Tải lịch sử hội thoại từ Redis.
-          2. Lấy hoặc khởi tạo graph workflow theo bot_id.
-          3. Tạo initial state cho LangGraph.
-          4. Thực thi workflow để sinh câu trả lời.
-          5. Lưu lịch sử hội thoại mới vào Redis.
-          6. Trả về kết quả cuối cùng cho client.
-
-          Args:
-              bot_id (str):
-                  ID định danh chatbot/workflow cần sử dụng.
-
-              question (str):
-                  Câu hỏi hiện tại từ người dùng.
-
-              conversation_id (str):
-                  ID cuộc hội thoại dùng để lưu và truy xuất lịch sử chat.
-
-              bot_instructions (Optional[str]):
-                  System prompt hoặc instruction bổ sung cho bot.
-
-          Returns:
-              str:
-                  Nội dung phản hồi cuối cùng từ AI.
-
-          Notes:
-              - Workflow sử dụng LangGraph thiết kế Single-Node
-              - Chat history được lưu trên Redis.
-              - Graph được cache để tối ưu hiệu năng.
+        Xử lý câu hỏi của người dùng thông qua workflow LangGraph.
         """
-        logger.bind(context="AI-Engine").info(f"New request - Bot: {bot_id}, Conversation: {conversation_id}, Question: {question}")
+        logger.bind(context="AI-Engine").info(
+            f"Nhận yêu cầu mới - Bot: {bot_id}, "
+            f"Conversation: {conversation_id}, "
+            f"Câu hỏi: {question}"
+        )
+
         try:
+            # Bước 1: Tải lịch sử hội thoại
+            logger.bind(context="AI-Engine").info(
+                f"Đang tải lịch sử hội thoại của cuộc trò chuyện {conversation_id}"
+            )
+
             chat_history = await self.get_chat_history(conversation_id)
+
+            logger.bind(context="AI-Engine").info(
+                f"Đã tải {len(chat_history)} tin nhắn từ lịch sử hội thoại"
+            )
+
+            # Bước 2: Lấy graph workflow
+            logger.bind(context="AI-Engine").info(
+                f"Đang lấy workflow của bot {bot_id}"
+            )
+
             graph = self._get_graph(bot_id)
 
+            logger.bind(context="AI-Engine").info(
+                f"Đã sẵn sàng workflow của bot {bot_id}"
+            )
+
+            # Bước 3: Khởi tạo state
             initial_state = {
                 "input": question,
                 "chat_history": chat_history,
@@ -114,21 +122,59 @@ class AIEngine:
                 "standalone_question": ""
             }
 
+            logger.bind(context="AI-Engine").info(
+                "Đã khởi tạo trạng thái ban đầu"
+            )
+
+            # Bước 4: Thực thi LangGraph
+            logger.bind(context="AI-Engine").info(
+                "Đang thực thi workflow LangGraph"
+            )
+
             result = await graph.ainvoke(initial_state)
-            answer = result.get("answer", "Xin lỗi, tôi không thể trả lời lúc này.")
 
-            logger.bind(context="AI-Engine").info(f"Final answer for {conversation_id}: {answer[:100]}...")
+            logger.bind(context="AI-Engine").info(
+                "Đã thực thi xong workflow LangGraph"
+            )
 
-            await self.save_chat_history(conversation_id, [
-                HumanMessage(content=question),
-                AIMessage(content=answer)
-            ])
+            answer = result.get(
+                "answer",
+                "Xin lỗi, tôi không thể trả lời lúc này."
+            )
+
+            logger.bind(context="AI-Engine").info(
+                f"Đã sinh câu trả lời: {answer[:100]}..."
+            )
+
+            # Bước 5: Lưu lịch sử hội thoại
+            logger.bind(context="AI-Engine").info(
+                f"Đang lưu lịch sử hội thoại cho {conversation_id}"
+            )
+
+            await self.save_chat_history(
+                conversation_id,
+                [
+                    HumanMessage(content=question),
+                    AIMessage(content=answer)
+                ]
+            )
+
+            logger.bind(context="AI-Engine").info(
+                f"Đã lưu lịch sử hội thoại cho {conversation_id}"
+            )
 
             return str(answer)
 
-        except Exception as e:
-            logger.error(f"AI Engine Error: {e}")
-            return "Xin lỗi, tôi gặp sự cố trong quá trình suy nghĩ. Vui lòng thử lại sau."
+        except Exception as exception:
+            logger.bind(context="AI-Engine").exception(
+                f"Lỗi khi xử lý yêu cầu của cuộc trò chuyện "
+                f"{conversation_id}: {exception}"
+            )
+
+            return (
+                "Xin lỗi, tôi gặp sự cố trong quá trình suy nghĩ. "
+                "Vui lòng thử lại sau."
+            )
 
 # Khởi tạo Singleton
 ai_engine = AIEngine()
