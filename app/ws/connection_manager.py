@@ -18,33 +18,29 @@ class SocketClient:
         await self.websocket.send_bytes(binary_data)
 
 class ConnectionManager:
-    _instance = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(ConnectionManager, cls).__new__(cls)
-            cls._instance.active_connections: Dict[str, SocketClient] = {}
-        return cls._instance
-
-    @classmethod
-    def get_instance(cls) -> "ConnectionManager":
-        return cls()
+    def __init__(self):
+        self.active_connections: Dict[str, SocketClient] = {}
 
     async def connect(self, socket_id: str, websocket: WebSocket):
         """Chấp nhận kết nối và lưu client."""
         await websocket.accept()
         self.active_connections[socket_id] = SocketClient(websocket)
-        logger.bind(context="WS").info(f"Client connected: {socket_id}")
+        logger.bind(context="WS").info(f"Client connected: {socket_id} | active: {self.active_count}")
 
     def disconnect(self, socket_id: str):
         """Xóa client khỏi danh sách quản lý."""
         if socket_id in self.active_connections:
             del self.active_connections[socket_id]
-            logger.bind(context="WS").info(f"Client disconnected: {socket_id}")
+            logger.bind(context="WS").info(f"Client disconnected: {socket_id} | active: {self.active_count}")
 
     def get_client(self, socket_id: str) -> Optional[SocketClient]:
         """Lấy thông tin client theo socket_id."""
         return self.active_connections.get(socket_id)
+
+    @property
+    def active_count(self) -> int:
+        """Số lượng connection đang hoạt động."""
+        return len(self.active_connections)
 
     async def broadcast(self, message: Dict[str, Any]):
         """Gửi tin nhắn cho tất cả các client đang kết nối."""
@@ -52,4 +48,4 @@ class ConnectionManager:
             await client.send_json(message)
 
 # Singleton instance
-manager = ConnectionManager.get_instance()
+manager = ConnectionManager()
