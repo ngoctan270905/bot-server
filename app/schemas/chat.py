@@ -1,9 +1,12 @@
-from pydantic import BaseModel, Field, ConfigDict, BeforeValidator
+from pydantic import BaseModel, Field, ConfigDict, BeforeValidator, AliasChoices
 from pydantic.alias_generators import to_camel
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated, Optional
 
 PyObjectId = Annotated[str, BeforeValidator(str)]
+
+def now_utc():
+    return datetime.now(timezone.utc)
 
 class AttachmentSchema(BaseModel):
     type: str = Field(...)
@@ -17,33 +20,48 @@ class CustomerDetailResponse(BaseModel):
     name: str | None = Field(None)
     avatar: str | None = Field(None)
     channel: str | None = Field(None)
-    created_at: datetime = Field(...)
+    created_at: datetime = Field(
+        default_factory=now_utc, 
+        validation_alias=AliasChoices("createdAt", "created_at")
+    )
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 class ConversationListAll(BaseModel):
     id: PyObjectId = Field(alias="_id", serialization_alias="id")
-    customer_id: PyObjectId = Field(...)
+    customer_id: PyObjectId = Field(..., alias="customerId")
     channel: str = Field(...)
-    bot_id: PyObjectId = Field(...)
-    created_at: datetime = Field(...)
-    updated_at: datetime = Field(...)
+    bot_id: PyObjectId = Field(..., alias="botId")
+    created_at: datetime = Field(
+        default_factory=now_utc, 
+        validation_alias=AliasChoices("createdAt", "created_at")
+    )
+    updated_at: datetime = Field(
+        default_factory=now_utc, 
+        validation_alias=AliasChoices("updatedAt", "updated_at")
+    )
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 class ConversationDetailResponse(BaseModel):
     id: PyObjectId = Field(alias="_id", serialization_alias="id")
-    customer_id: PyObjectId = Field(...)
+    customer_id: PyObjectId = Field(..., alias="customerId")
     channel: str = Field(...)
-    bot_id: PyObjectId = Field(...)
-    auto_reply: bool = Field(True)
-    created_at: datetime = Field(...)
-    updated_at: datetime = Field(...)
+    bot_id: PyObjectId = Field(..., alias="botId")
+    auto_reply: bool = Field(True, alias="autoReply")
+    created_at: datetime = Field(
+        default_factory=now_utc, 
+        validation_alias=AliasChoices("createdAt", "created_at")
+    )
+    updated_at: datetime = Field(
+        default_factory=now_utc, 
+        validation_alias=AliasChoices("updatedAt", "updated_at")
+    )
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 class ChatHistoryCreate(BaseModel):
     role: str = Field("agent")
-    bot_id: PyObjectId = Field(...)
+    bot_id: PyObjectId = Field(..., alias="botId")
     content: str | None = Field(None)
-    conversation_id: PyObjectId = Field(...)
+    conversation_id: PyObjectId = Field(..., alias="conversationId")
     attachments: list[AttachmentSchema] = Field(default_factory=list)
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
@@ -53,8 +71,11 @@ class ChatHistoryDetailResponse(BaseModel):
     content: str | None
     thumb: str = "Unspecified"
     attachments: list[AttachmentSchema] = Field(default_factory=list)
-    conversation_id: PyObjectId = Field(...)
-    created_at: datetime = Field(...)
+    conversation_id: PyObjectId = Field(..., alias="conversationId")
+    created_at: datetime = Field(
+        default_factory=now_utc, 
+        validation_alias=AliasChoices("createdAt", "created_at")
+    )
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 class ConversationWithHistory(ConversationDetailResponse):

@@ -29,10 +29,11 @@ class BaseRepository:
 
     async def create(self, data: dict) -> dict:
         """Tạo mới bản ghi."""
-        if "created_at" not in data:
-            data["created_at"] = datetime.now(timezone.utc)
-        if "updated_at" not in data:
-            data["updated_at"] = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc)
+        if "createdAt" not in data and "created_at" not in data:
+            data["createdAt"] = now
+        if "updatedAt" not in data and "updated_at" not in data:
+            data["updatedAt"] = now
 
         result = await self.collection.insert_one(data)
         data["_id"] = str(result.inserted_id)
@@ -66,7 +67,7 @@ class BaseRepository:
 
     async def update(self, id: str, data: dict) -> Optional[dict]:
         """Cập nhật bản ghi."""
-        data["updated_at"] = datetime.now(timezone.utc)
+        data["updatedAt"] = datetime.now(timezone.utc)
         # Loại bỏ _id nếu có để tránh lỗi MongoDB
         data.pop("_id", None)
 

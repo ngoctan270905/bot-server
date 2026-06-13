@@ -1,5 +1,10 @@
 import json
+import asyncio
+from datetime import datetime, timezone
+from bson import ObjectId
 from loguru import logger
+
+from app.db.redis import get_arq_pool
 from app.repositories.social_repository import SocialPageRepository
 from app.repositories.customer_repository import CustomerRepository
 from app.repositories.conversation_repository import ConversationRepository
@@ -47,10 +52,10 @@ async def handle_telegram_message_event(
                 "cid": customer_cid,
                 "name": update.message.from_user.first_name,
                 "socialPageId": social_page["_id"],
-                "channel": "telegram"
+                "channel": "telegram",
+                "createdAt": datetime.now(timezone.utc)
             }
-            result = await customer_repo.collection.insert_one(customer_data)
-            customer = {**customer_data, "_id": result.inserted_id}
+            customer = await customer_repo.create(customer_data)
 
         # Find or create the conversation.
         conversation = await conversation_repo.collection.find_one({
@@ -62,10 +67,20 @@ async def handle_telegram_message_event(
                 "customerId": customer["_id"],
                 "botId": bot_id,
                 "channel": "telegram",
-                "autoReply": True
+                "autoReply": True,
+                "createdAt": datetime.now(timezone.utc),
+                "updatedAt": datetime.now(timezone.utc)
             }
-            result = await conversation_repo.collection.insert_one(conversation_data)
-            conversation = {**conversation_data, "_id": result.inserted_id}
+            conversation = await conversation_repo.create(conversation_data)
+
+        # 1. Save Customer message
+        try:
+            arq_pool = get_arq_pool()
+            asyncio.create_task(
+                arq_pool.enqueue_job('save_chat_history_task', str(conversation["_id"]), str(bot_id), update.message.text, "customer")
+            )
+        except Exception as e:
+            logger.error(f"Failed to enqueue customer message: {e}")
 
         # Skip AI processing when auto-reply is disabled.
         if not conversation.get("autoReply", True):
@@ -77,6 +92,15 @@ async def handle_telegram_message_event(
             question=update.message.text,
             conversation_id=str(conversation["_id"])
         )
+
+        # 2. Save AI response
+        try:
+            arq_pool = get_arq_pool()
+            asyncio.create_task(
+                arq_pool.enqueue_job('save_chat_history_task', str(conversation["_id"]), str(bot_id), response_text, "ai")
+            )
+        except Exception as e:
+            logger.error(f"Failed to enqueue AI response: {e}")
 
         # Send the generated response back to Telegram.
         await telegram_service.send_message(

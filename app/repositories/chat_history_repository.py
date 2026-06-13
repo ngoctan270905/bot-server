@@ -1,5 +1,6 @@
 from typing import List, Optional
 from datetime import datetime
+from bson import ObjectId
 from app.repositories.base_repo import BaseRepository
 
 class ChatHistoryRepository(BaseRepository):
@@ -22,15 +23,15 @@ class ChatHistoryRepository(BaseRepository):
         
         # Nếu có bot_id cụ thể
         if bot_id:
-            query["botId"] = bot_id
+            query["botId"] = ObjectId(bot_id)
         
         # Lọc theo thời gian
         if start_date or end_date:
-            query["created_at"] = {}
+            query["createdAt"] = {}
             if start_date:
-                query["created_at"]["$gte"] = start_date
+                query["createdAt"]["$gte"] = start_date
             if end_date:
-                query["created_at"]["$lt"] = end_date
+                query["createdAt"]["$lt"] = end_date
         
         # Phải lọc theo project thông qua botId (cần join hoặc lấy danh sách botId của project trước)
         # Trong MongoDB thô, thường ta sẽ truyền danh sách botIds vào query
@@ -42,7 +43,7 @@ class ChatHistoryRepository(BaseRepository):
         """
         Lấy lịch sử tin nhắn của một cuộc hội thoại.
         """
-        query = {"conversationId": conversation_id}
-        sort = [("created_at", 1)]  # Cũ đến mới
+        query = {"conversationId": ObjectId(conversation_id)}
+        sort = [("createdAt", 1)]  # Cũ đến mới (Sử dụng createdAt để đồng nhất)
         # Sử dụng find_many từ BaseRepository
         return await self.find_many(filter=query, sort=sort, limit=1000)

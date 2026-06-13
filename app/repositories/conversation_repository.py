@@ -20,7 +20,7 @@ class ConversationRepository(BaseRepository):
         """
         Lấy danh sách hội thoại có kèm bộ lọc và phân trang.
         """
-        query = {"botId": bot_id}
+        query = {"botId": ObjectId(bot_id)}
 
         if from_date or to_date:
             query["createdAt"] = {}

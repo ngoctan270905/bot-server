@@ -1,4 +1,5 @@
 from datetime import datetime, timezone, timedelta
+from bson import ObjectId
 from app.db.mongodb import get_database
 from loguru import logger
 
@@ -9,12 +10,12 @@ async def save_chat_history_task(ctx, conversation_id: str, bot_id: str, content
     try:
         db = get_database()
         now = datetime.now(timezone.utc)
-        
+
         chat_data = {
             "role": role,
-            "botId": bot_id,
+            "botId": ObjectId(bot_id),
             "content": content,
-            "conversationId": conversation_id,
+            "conversationId": ObjectId(conversation_id),
             "createdAt": now
         }
         await db["ChatHistory"].insert_one(chat_data)
