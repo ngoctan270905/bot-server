@@ -42,10 +42,10 @@ async def handle_telegram_message_event(
 
         # Find or create the customer record.
         customer_cid = str(update.message.from_user.id)
-        customer = await customer_repo.collection.find_one({
-            "cid": customer_cid,
-            "socialPageId": social_page["_id"]
-        })
+        customer = await customer_repo.get_by_cid_and_social_page_id(
+            customer_cid = customer_cid,
+            social_page_id = social_page["_id"]
+        )
 
         if not customer:
             customer_data = {
@@ -58,14 +58,12 @@ async def handle_telegram_message_event(
             customer = await customer_repo.create(customer_data)
 
         # Find or create the conversation.
-        conversation = await conversation_repo.collection.find_one({
-            "customerId": customer["_id"]
-        })
+        conversation = await conversation_repo.get_by_customer_id(customer["_id"])
 
         if not conversation:
             conversation_data = {
-                "customerId": customer["_id"],
-                "botId": bot_id,
+                "customerId": ObjectId(customer["_id"]),
+                "botId": ObjectId(bot_id),
                 "channel": "telegram",
                 "autoReply": True,
                 "createdAt": datetime.now(timezone.utc),
@@ -76,11 +74,19 @@ async def handle_telegram_message_event(
         # 1. Save Customer message
         try:
             arq_pool = get_arq_pool()
-            asyncio.create_task(
-                arq_pool.enqueue_job('save_chat_history_task', str(conversation["_id"]), str(bot_id), update.message.text, "customer")
+
+            await arq_pool.enqueue_job(
+                "save_chat_history_task",
+                ObjectId(conversation["_id"]),
+                ObjectId(bot_id),
+                update.message.text,
+                "customer"
             )
-        except Exception as e:
-            logger.error(f"Failed to enqueue customer message: {e}")
+
+        except Exception:
+            logger.exception(
+                "Failed to enqueue customer message"
+            )
 
         # Skip AI processing when auto-reply is disabled.
         if not conversation.get("autoReply", True):
@@ -96,11 +102,19 @@ async def handle_telegram_message_event(
         # 2. Save AI response
         try:
             arq_pool = get_arq_pool()
-            asyncio.create_task(
-                arq_pool.enqueue_job('save_chat_history_task', str(conversation["_id"]), str(bot_id), response_text, "ai")
+
+            await arq_pool.enqueue_job(
+                "save_chat_history_task",
+                ObjectId(conversation["_id"]),
+                ObjectId(bot_id),
+                response_text,
+                "ai"
             )
-        except Exception as e:
-            logger.error(f"Failed to enqueue AI response: {e}")
+
+        except Exception:
+            logger.exception(
+                "Failed to enqueue AI response"
+            )
 
         # Send the generated response back to Telegram.
         await telegram_service.send_message(

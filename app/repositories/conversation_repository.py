@@ -7,6 +7,17 @@ class ConversationRepository(BaseRepository):
     """
     Repository cho collection 'Conversation'.
     """
+
+    async def get_by_customer_id(self, customer_id: ObjectId) -> Optional[dict]:
+        """
+        Lấy hội thoại theo customerId.
+        """
+        query = {"customerId": customer_id}
+
+        conversation = await self.find_one(filter=query)
+
+        return conversation
+
     async def get_chatlogs(
         self,
         bot_id: str,
@@ -21,6 +32,7 @@ class ConversationRepository(BaseRepository):
         Lấy danh sách hội thoại có kèm bộ lọc và phân trang.
         """
         query = {"botId": ObjectId(bot_id)}
+        print(f"Test: {query}")
 
         if from_date or to_date:
             query["createdAt"] = {}

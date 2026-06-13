@@ -58,6 +58,7 @@ class ChatService:
             to_date=end_dt,
             channels=channel_list
         )
+        print(f"Test get chatlog: {conversations}")
 
         results = []
         for conv in conversations:
