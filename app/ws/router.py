@@ -110,3 +110,95 @@ async def websocket_endpoint(
             + traceback.format_exc()
         )
         manager.disconnect(socket_id)
+
+
+@router.websocket("/livechat")
+async def livechat_endpoint(
+    websocket: WebSocket,
+    botId: str = Query(..., alias="botId"),
+    chat_service: ChatService = Depends(get_chat_service)
+):
+    """
+    WebSocket dành cho khách hàng chat trực tiếp (Live Chat).
+    Không yêu cầu Token, chỉ cần botId.
+    """
+    await websocket.accept()
+    logger.info(f"Khách hàng kết nối LiveChat: bot_id={botId}")
+
+    try:
+        while True:
+            # Nhận tin nhắn JSON từ khách hàng
+            data = await websocket.receive_json()
+            msg_type = data.get("type")
+            payload = data.get("data", {})
+
+            if msg_type == "init":
+                # 1. Khởi tạo phiên chat (Tạo Customer & Conversation)
+                conversation_id = await chat_service.start_chat(bot_id=botId, channel="live")
+                
+                # 2. Lấy thông tin Bot để gửi trả khách
+                bot = await chat_service._bot_repo.get_by_id(botId)
+                
+                await websocket.send_json({
+                    "type": "init",
+                    "data": {
+                        "conversationId": conversation_id,
+                        "chatbot": {
+                            "id": botId,
+                            "name": bot.get("name", "Assistant") if bot else "Assistant"
+                        }
+                    }
+                })
+
+            elif msg_type == "message":
+                content = payload.get("content")
+                conversation_id = payload.get("conversationId")
+
+                if not content or not conversation_id:
+                    continue
+
+                # 1. Gửi xác nhận nhận tin nhắn (Echo để UI hiện tin nhắn khách ngay)
+                await websocket.send_json({
+                    "type": "message",
+                    "data": {
+                        "content": content,
+                        "role": "customer"
+                    }
+                })
+
+                # 2. Gọi AI Engine lấy phản hồi
+                try:
+                    ai_response = await chat_service.get_ai_response(
+                        bot_id=botId,
+                        message=content,
+                        conversation_id=conversation_id
+                    )
+
+                    # 3. Lưu lịch sử vào DB qua Task ngầm
+                    await chat_service.save_message(conversation_id, botId, content, "customer")
+                    await chat_service.save_message(conversation_id, botId, ai_response, "ai")
+
+                    # 4. Gửi câu trả lời của AI cho khách
+                    await websocket.send_json({
+                        "type": "message",
+                        "data": {
+                            "content": ai_response,
+                            "role": "ai"
+                        }
+                    })
+                except Exception as e:
+                    logger.error(f"Lỗi AI trong LiveChat: {e}")
+                    await websocket.send_json({
+                        "type": "message",
+                        "data": {
+                            "content": "Xin lỗi, tôi gặp sự cố trong quá trình suy nghĩ. Vui lòng thử lại sau.",
+                            "role": "ai"
+                        }
+                    })
+
+    except WebSocketDisconnect:
+        logger.info(f"Khách hàng đã thoát LiveChat: bot_id={botId}")
+    except Exception as e:
+        logger.error(f"Lỗi không mong muốn trong LiveChat WebSocket: {e}")
+        if websocket.client_state.name != "DISCONNECTED":
+            await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
