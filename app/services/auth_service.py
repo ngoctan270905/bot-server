@@ -89,7 +89,7 @@ class AuthService:
         # 1. Tìm EmailPasswordUser
         email_pw_user = await self._email_pw_repo.get_by_email(email)
         if not email_pw_user:
-            raise BadRequestException(detail="User not found.")
+            raise BadRequestException(detail="Incorrect username or password.")
 
         # 2. Kiểm tra password
         if not verify_password(password, email_pw_user["password"]):
