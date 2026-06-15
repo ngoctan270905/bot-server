@@ -26,10 +26,13 @@ class RedisSettings(BaseModel):
         return f"redis://{self.host}:{self.port}/{self.db}"
 
 class AISettings(BaseModel):
+    openrouter_key: Optional[str] = Field(None, alias="OPENROUTER_API_KEY")
     gemini_key: Optional[str] = Field(None, alias="GGG_AI_API_KEY")
     openai_key: Optional[str] = Field(None, alias="OPENAI_API_KEY")
     jina_key: Optional[str] = Field(None, alias="JINA_API_KEY")
     cohere_key: Optional[str] = Field(None, alias="COHERE_API_KEY")
+
+
 
     # Bot-Server specific AI settings (Synced with ChatBot-Model)
     embedding_url: str = Field("http://localhost:8081/v1/embeddings", alias="EMBEDDING_URL")
@@ -139,6 +142,7 @@ class Settings(BaseSettings):
     HASH_PEPPER: str = Field("pepper", alias="HASH_PEPPER")
 
     # --- AI ---
+    OPENROUTER_API_KEY: Optional[str] = None
     GGG_AI_API_KEY: Optional[str] = None
     OPENAI_API_KEY: Optional[str] = None
     JINA_API_KEY: Optional[str] = None
@@ -158,6 +162,7 @@ class Settings(BaseSettings):
     @property
     def ai(self) -> AISettings:
         return AISettings(
+            openrouter_key=self.OPENROUTER_API_KEY,
             gemini_key=self.GGG_AI_API_KEY,
             openai_key=self.OPENAI_API_KEY,
             jina_key=self.JINA_API_KEY,
