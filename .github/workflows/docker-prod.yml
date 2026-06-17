@@ -1,0 +1,99 @@
+# Tên workflow hiển thị trên GitHub Actions
+name: Build and Push to GHCR
+
+# Trigger workflow khi có code được push lên branch production
+on:
+  push:
+    branches: [ "main" ]
+
+# Khai báo biến môi trường dùng chung cho toàn bộ workflow
+env:
+  # Địa chỉ GitHub Container Registry
+  REGISTRY: ghcr.io
+
+  # Tên image lấy từ tên repository
+  IMAGE_NAME: ${{ github.repository }}
+
+  # Bắt buộc một số GitHub Action chạy bằng Node.js 24
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build-and-push:
+
+    # Chạy trên máy Ubuntu do GitHub cung cấp
+    runs-on: ubuntu-latest
+
+    # Cấp quyền cho workflow
+    permissions:
+      # Quyền đọc source code repository
+      contents: read
+
+      # Quyền push image lên GHCR
+      packages: write
+
+    steps:
+
+      # Clone source code từ GitHub Repository về Runner
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Cài đặt QEMU để build image đa kiến trúc (amd64, arm64...)
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      # Cài đặt Docker Buildx
+      # Buildx hỗ trợ build đa nền tảng và cache build
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Đăng nhập vào GitHub Container Registry (GHCR)
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Tạo metadata cho Docker Image
+      # Bao gồm tags và labels
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+          tags: |
+            # Tag cố định latest
+            type=raw,value=latest
+
+            # Tag theo commit hash
+            # Ví dụ: a1b2c3d
+            type=sha,format=short
+
+      # Build Docker Image và push lên GHCR
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+
+          # Thư mục chứa Dockerfile
+          context: .
+
+          # Build xong sẽ tự động push lên registry
+          push: true
+
+          # Build cho nhiều kiến trúc CPU
+          # amd64: Intel/AMD
+          # arm64: ARM Server, Raspberry Pi...
+          platforms: linux/amd64,linux/arm64
+
+          # Tags được tạo ở bước metadata
+          tags: ${{ steps.meta.outputs.tags }}
+
+          # Labels được tạo ở bước metadata
+          labels: ${{ steps.meta.outputs.labels }}
+
+          # Sử dụng cache từ lần build trước
+          cache-from: type=gha
+
+          # Lưu cache cho lần build tiếp theo
+          cache-to: type=gha,mode=max
